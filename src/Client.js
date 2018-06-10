@@ -4,7 +4,7 @@
 class Client {
     constructor(socket) {
         this.socket = socket;
-        this.name = `${socket.remoteAddress}${socket.remotePort}`;
+        this.name = `${socket.remoteAddress}:${socket.remotePort}`;
     }
 }
 
