@@ -63,6 +63,9 @@ function ipcHandler(data) {
     // Invokes method with the same name as the IPC action in the respective client, and the argument is the IPC data
     // When writing IPC messages, keep in mind that action directly corresponds to the method name in the Client object
     // And that the data directly corresponds to the arguments for said method.
+    // If the method doesn't exist, just do nothing.
+    if(clients[message.client][message.action] == undefined)
+        return;
     clients[message.client][message.action](message.data);
 }
 
