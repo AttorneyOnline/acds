@@ -7,23 +7,14 @@
 // imports
 const net = require("net");
 const WebSocket = require('ws');
-const fs = require("fs");
 const Client = require("./Client.js");
+const config = require("./config.js");
 
 // globals
 let messageQueue = []; // A message queue ensures reliable data transmission even when the other process crashes
 let clients = {}; // This is a map of socket names to client objects
-let config; // JSON-Parsed config object
 let ipcSocket; // Socket object representing the IPC TCP connection
 let ipcConnected = false; // Is the IPC socket connected?
-
-// TODO: Default config and config import
-if (fs.existsSync("../config/config.json")) {
-    config = JSON.parse(fs.readFileSync("../config/config.json"));
-} else {
-    console.error("ERROR: No config found.");
-    process.exit(1);
-}
 
 // Filter for JSON stringify, to keep socket objects out
 // They can't be called correctly from the other process anyways

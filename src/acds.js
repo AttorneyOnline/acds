@@ -5,21 +5,12 @@
 
 // imports
 const net = require("net");
-const fs = require("fs");
 const WebSocket = require('ws');
+const config = require("./config.js");
 
 // globals
-let config;
 let clients;
 let ipcSocket;
-
-// TODO: Default config and config import
-if (fs.existsSync("../config/config.json")) {
-    config = JSON.parse(fs.readFileSync("../config/config.json"));
-} else {
-    console.error("ERROR: No config found.");
-    process.exit(1);
-}
 
 function ipcListener(socket){
     ipcSocket = socket;
