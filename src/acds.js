@@ -17,10 +17,15 @@ function ipcListener(socket){
     ipcSocket = socket;
 
     socket.on("message", (data) => {
+        let input;
         try{
-            let input = JSON.parse(data);
+            input = JSON.parse(data);
         } catch (e) {
-            console.error("Invalid IPC!");
+            console.error("Invalid IPC: Not valid JSON");
+            return;
+        }
+        if(input == undefined || input.clients == undefined || input.client == undefined || input.data == undefined || input.clients[input.client] == undefined){
+            console.error("Invalid IPC: Required fields not defined");
             return;
         }
         clients = input.clients;
