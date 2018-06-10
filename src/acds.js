@@ -17,7 +17,12 @@ function ipcListener(socket){
     ipcSocket = socket;
 
     socket.on("message", (data) => {
-        let input = JSON.parse(data);
+        try{
+            let input = JSON.parse(data);
+        } catch (e) {
+            console.error("Invalid IPC!");
+            return;
+        }
         clients = input.clients;
         ipcHandler(input.clients[input.client], Buffer.from(input.data));
     });
@@ -29,7 +34,7 @@ function ipcHandler(client, data) {
     let response = {
         action: "send",
         client: client.name,
-        data: "hi to you"
+        data: `echo: ${data.toString()}`
     }
     ipcSocket.send(JSON.stringify(response));
 
