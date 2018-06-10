@@ -27,19 +27,26 @@ let ipcListener = net.createServer((socket) => {
     socket.on('data', (data) => {
         let input = JSON.parse(data);
         clients = input.clients;
-        ipcHandler(input.client, Buffer.from(input.data));
+        ipcHandler(input.clients[input.client], Buffer.from(input.data));
     });
 }).listen(config.ipcPort, "localhost");
 
 // Handles incoming IPC data
 function ipcHandler(client, data) {
-    console.log(client);
-    console.log(data.toString());
-
+    // Just some dummy test stuff for now
     let response = {
         action: "send",
-        client: client,
-        data: "youre mom gay"
+        client: client.name,
+        data: "hi to you"
+    }
+    ipcSocket.write(JSON.stringify(response));
+
+    client.randomProperty = "abc123";
+
+    response = {
+        action: "update",
+        client: client.name,
+        data: client
     }
     ipcSocket.write(JSON.stringify(response));
 }

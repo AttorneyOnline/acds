@@ -1,5 +1,5 @@
 // Copyright gameboyprinter 2018
-// This file contains state and handles incoming connections.
+// This file contains client state and handles incoming connections.
 // Data is passed via a local TCP socket to the actual logic, in a different process
 // This allows "hot-swappable" code, where the logic can be changed and the clients never lose connection
 // Additionally, an auto-updater will be possible, and the server won't even go down!
@@ -29,7 +29,7 @@ if (fs.existsSync("../config/config.json")) {
 // They can't be called correctly from the other process anyways
 // And they have a circular reference in them, which cannot be stringified
 function removeSocket(key, value) {
-    if(key == "socket") return undefined;
+    if (key == "socket") return undefined;
     else return value;
 }
 
@@ -54,15 +54,16 @@ function clientHandler(socket) {
     });
 
     // Connection errors are handled here
-    socket.on("error", (e) => {
-    });
+    socket.on("error", (e) => {});
 }
 
 // Handle incoming IPC messages
-function ipcHandler(data){
+function ipcHandler(data) {
     let message = JSON.parse(data.toString());
-    if(message.action == "send"){
+    if (message.action == "send") {
         clients[message.client].send(message.data);
+    } else if (message.action == "update") {
+        clients[message.client].update(message.data);
     }
 }
 
@@ -90,22 +91,23 @@ function tryConnect(callback) {
 
 // Used to create a socket connection object.
 function connect() {
-    return new net.Socket().connect(config.ipcPort, "localhost", () => {
-    });
+    return new net.Socket().connect(config.ipcPort, "localhost", () => {});
 }
 
 // This iterates through the message queue, removing each entry, and writing it to the IPC socket
 function flushToIPC() {
     // If the ipc socket can receive data, write everything in the message queue to it
-    if(ipcConnected){
-        while(messageQueue.length > 0){
+    if (ipcConnected) {
+        while (messageQueue.length > 0) {
             ipcSocket.write(messageQueue.shift());
         }
     }
 }
 
 // Start listening...
-let server = new WebSocket.Server({port: config.port});
+let server = new WebSocket.Server({
+    port: config.port
+});
 server.on("connection", clientHandler);
 
 // This is the call to the tryConnect method.

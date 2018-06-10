@@ -10,6 +10,10 @@ class Client {
     send(data) {
         this.socket.send(data);
     }
+
+    update(newState) {
+        Object.assign(this, newState);
+    }
 }
 
 module.exports = Client;
