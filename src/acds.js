@@ -25,7 +25,9 @@ function ipcListener(socket){
     ipcSocket = socket;
 
     socket.on("message", (data) => {
-        console.log(data.toString());
+        let input = JSON.parse(data);
+        clients = input.clients;
+        ipcHandler(input.clients[input.client], Buffer.from(input.data));
     });
 }
 
@@ -37,7 +39,7 @@ function ipcHandler(client, data) {
         client: client.name,
         data: "hi to you"
     }
-    ipcSocket.write(JSON.stringify(response));
+    ipcSocket.send(JSON.stringify(response));
 
     client.randomProperty = "abc123";
 
@@ -46,7 +48,7 @@ function ipcHandler(client, data) {
         client: client.name,
         data: client
     }
-    ipcSocket.write(JSON.stringify(response));
+    ipcSocket.send(JSON.stringify(response));
 }
 
 // Create IPC listen server

@@ -84,7 +84,7 @@ function tryConnect(callback) {
     });
 
     // Handle any data received from the other process
-    ipcSocket.on("data", ipcHandler);
+    ipcSocket.on("message", ipcHandler);
 }
 
 // This iterates through the message queue, removing each entry, and writing it to the IPC socket
