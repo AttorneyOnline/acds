@@ -6,6 +6,11 @@ class Client {
         this.socket = socket;
         this.name = `${socket.remoteAddress}:${socket.remotePort}`;
     }
+
+    send(data) {
+        console.log("writing");
+        this.socket.write(data);
+    }
 }
 
 module.exports = Client;

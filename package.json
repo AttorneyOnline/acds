@@ -1,0 +1,22 @@
+{
+  "name": "acds",
+  "version": "1.0.0",
+  "description": "Animated Chatroom Dedicated Server",
+  "main": "src/acds.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AttorneyOnline/acds.git"
+  },
+  "author": "gameboyprinter",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/AttorneyOnline/acds/issues"
+  },
+  "homepage": "https://github.com/AttorneyOnline/acds#readme",
+  "dependencies": {
+    "ws": "^5.2.0"
+  }
+}
