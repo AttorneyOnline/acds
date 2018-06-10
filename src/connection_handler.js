@@ -69,18 +69,17 @@ function ipcHandler(data) {
 // Try to connect to logic handler process
 function tryConnect(callback) {
     // Try to connect...
-    ipcSocket = connect();
+    ipcSocket = new WebSocket(`ws://localhost:${config.ipcPort}`);
 
-    // If there is an error connection, wait 1s and retry
-    ipcSocket.on("error", (e) => {
+    // If connection is closed, wait 1s and retry
+    ipcSocket.on("close", () => {
         ipcConnected = false;
-        ipcSocket.destroy();
         console.error("Connection error, retrying...");
         setTimeout(tryConnect.bind(this, callback), 1000);
-    });
+    })
 
     // Callback on succesful connection
-    ipcSocket.on("connect", () => {
+    ipcSocket.on("open", () => {
         callback(ipcSocket);
     });
 
@@ -88,17 +87,12 @@ function tryConnect(callback) {
     ipcSocket.on("data", ipcHandler);
 }
 
-// Used to create a socket connection object.
-function connect() {
-    return new net.Socket().connect(config.ipcPort, "localhost", () => {});
-}
-
 // This iterates through the message queue, removing each entry, and writing it to the IPC socket
 function flushToIPC() {
     // If the ipc socket can receive data, write everything in the message queue to it
     if (ipcConnected) {
         while (messageQueue.length > 0) {
-            ipcSocket.write(messageQueue.shift());
+            ipcSocket.send(messageQueue.shift());
         }
     }
 }

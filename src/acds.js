@@ -6,6 +6,7 @@
 // imports
 const net = require("net");
 const fs = require("fs");
+const WebSocket = require('ws');
 
 // globals
 let config;
@@ -20,16 +21,13 @@ if (fs.existsSync("../config/config.json")) {
     process.exit(1);
 }
 
-// Creates a local TCP server for the purpose of handling IPC messages
-let ipcListener = net.createServer((socket) => {
+function ipcListener(socket){
     ipcSocket = socket;
 
-    socket.on('data', (data) => {
-        let input = JSON.parse(data);
-        clients = input.clients;
-        ipcHandler(input.clients[input.client], Buffer.from(input.data));
+    socket.on("message", (data) => {
+        console.log(data.toString());
     });
-}).listen(config.ipcPort, "localhost");
+}
 
 // Handles incoming IPC data
 function ipcHandler(client, data) {
@@ -50,3 +48,9 @@ function ipcHandler(client, data) {
     }
     ipcSocket.write(JSON.stringify(response));
 }
+
+// Create IPC listen server
+let server = new WebSocket.Server({
+    port: config.ipcPort
+});
+server.on("connection", ipcListener);
