@@ -4,10 +4,21 @@
 // imports
 const fs = require("fs");
 
-// TODO: Default config and config import
-if (fs.existsSync("../config/config.json")) {
-    Object.assign(this, JSON.parse(fs.readFileSync("../config/config.json")));
-} else {
-    console.error("ERROR: No config found.");
-    process.exit(1);
+class ConfigManager {
+    constructor() {
+        // TODO: Default config and config import
+        if (fs.existsSync("../config/config.json")) {
+            this.reloadConfig();
+        } else {
+            console.error("ERROR: No config found.");
+            process.exit(1);
+        }
+    }
+
+    // Loads config from disk, and applies it to this object
+    reloadConfig() {
+        Object.assign(this, JSON.parse(fs.readFileSync("../config/config.json")));
+    }
 }
+
+module.exports = ConfigManager;

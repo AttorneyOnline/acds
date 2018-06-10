@@ -6,10 +6,11 @@
 // imports
 const net = require("net");
 const WebSocket = require('ws');
-const config = require("./config.js");
+const ConfigManager = require("./config.js");
 
 // globals
 let clients;
+let config = new ConfigManager();
 let ipcSocket;
 
 function ipcListener(socket){

@@ -7,12 +7,13 @@
 // imports
 const net = require("net");
 const WebSocket = require('ws');
-const Client = require("./Client.js");
-const config = require("./config.js");
+const Client = require("./client.js");
+const ConfigManager = require("./config.js");
 
 // globals
 let messageQueue = []; // A message queue ensures reliable data transmission even when the other process crashes
 let clients = {}; // This is a map of socket names to client objects
+let config = new ConfigManager(); // Object of config settings
 let ipcSocket; // Socket object representing the IPC TCP connection
 let ipcConnected = false; // Is the IPC socket connected?
 
@@ -71,6 +72,10 @@ function tryConnect(callback) {
         console.error("Connection error, retrying...");
         setTimeout(tryConnect.bind(this, callback), 1000);
     })
+
+    // Handle errors
+    ipcSocket.on("error", (e) => {
+    });
 
     // Callback on succesful connection
     ipcSocket.on("open", () => {
