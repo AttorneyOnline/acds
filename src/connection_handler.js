@@ -60,11 +60,10 @@ function clientHandler(socket) {
 // Handle incoming IPC messages
 function ipcHandler(data) {
     let message = JSON.parse(data.toString());
-    if (message.action == "send") {
-        clients[message.client].send(message.data);
-    } else if (message.action == "update") {
-        clients[message.client].update(message.data);
-    }
+    // Invokes method with the same name as the IPC action in the respective client, and the argument is the IPC data
+    // When writing IPC messages, keep in mind that action directly corresponds to the method name in the Client object
+    // And that the data directly corresponds to the arguments for said method.
+    clients[message.client][message.action](message.data);
 }
 
 // Try to connect to logic handler process
