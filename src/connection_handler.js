@@ -6,6 +6,7 @@
 
 // imports
 const net = require("net");
+const WebSocket = require('ws');
 const fs = require("fs");
 const Client = require("./Client.js");
 
@@ -38,7 +39,7 @@ function clientHandler(socket) {
     clients[client.name] = client;
 
     // When a client sends data, it is handled here
-    socket.on("data", (data) => {
+    socket.on("message", (data) => {
         messageQueue.push(JSON.stringify({
             client: client.name,
             clients: clients,
@@ -54,14 +55,12 @@ function clientHandler(socket) {
 
     // Connection errors are handled here
     socket.on("error", (e) => {
-        console.log(e);
     });
 }
 
 // Handle incoming IPC messages
 function ipcHandler(data){
     let message = JSON.parse(data.toString());
-    console.log(message);
     if(message.action == "send"){
         clients[message.client].send(message.data);
     }
@@ -76,7 +75,7 @@ function tryConnect(callback) {
     ipcSocket.on("error", (e) => {
         ipcConnected = false;
         ipcSocket.destroy();
-        console.log("Connection error, retrying...");
+        console.error("Connection error, retrying...");
         setTimeout(tryConnect.bind(this, callback), 1000);
     });
 
@@ -92,7 +91,6 @@ function tryConnect(callback) {
 // Used to create a socket connection object.
 function connect() {
     return new net.Socket().connect(config.ipcPort, "localhost", () => {
-
     });
 }
 
@@ -107,8 +105,8 @@ function flushToIPC() {
 }
 
 // Start listening...
-let server = net.createServer(clientHandler);
-server.listen(config.port);
+let server = new WebSocket.Server({port: config.port});
+server.on("connection", clientHandler);
 
 // This is the call to the tryConnect method.
 // The callback flushes the current message queue

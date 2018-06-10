@@ -4,12 +4,11 @@
 class Client {
     constructor(socket) {
         this.socket = socket;
-        this.name = `${socket.remoteAddress}:${socket.remotePort}`;
+        this.name = `${socket._socket.remoteAddress}:${socket._socket.remotePort}`;
     }
 
     send(data) {
-        console.log("writing");
-        this.socket.write(data);
+        this.socket.send(data);
     }
 }
 
