@@ -13,44 +13,32 @@ let clients;
 let config = new ConfigManager();
 let ipcSocket;
 
-function ipcListener(socket){
+function ipcListener(socket) {
     ipcSocket = socket;
 
+    // Validate incoming IPC data from client, and then pass it to the handler
     socket.on("message", (data) => {
         let input;
-        try{
+        try {
             input = JSON.parse(data);
         } catch (e) {
             console.error("Invalid IPC: Not valid JSON");
             return;
         }
-        if(input == undefined || input.clients == undefined || input.client == undefined || input.data == undefined || input.clients[input.client] == undefined){
+        if (typeof input === "undefined" || typeof input.client === "undefined" || typeof input.event === "undefined") {
             console.error("Invalid IPC: Required fields not defined");
             return;
         }
-        clients = input.clients;
-        ipcHandler(input.clients[input.client], Buffer.from(input.data));
+        else if(input.event == "connected") {
+            // client connected, dispatch event
+        }
+        else if(input.event == "disconnected") {
+            // client disconnected, dispatch event
+        }
+        else if(input.event == "data") {
+            // client sent data, dispatch event
+        }
     });
-}
-
-// Handles incoming IPC data
-function ipcHandler(client, data) {
-    // Just some dummy test stuff for now
-    let response = {
-        action: "send",
-        client: client.name,
-        data: `echo: ${data.toString()}`
-    }
-    ipcSocket.send(JSON.stringify(response));
-
-    client.randomProperty = "abc123";
-
-    response = {
-        action: "update",
-        client: client.name,
-        data: client
-    }
-    ipcSocket.send(JSON.stringify(response));
 }
 
 // Create IPC listen server

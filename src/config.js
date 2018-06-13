@@ -11,8 +11,16 @@ class ConfigManager {
             this.reloadConfig();
         } else {
             console.error("ERROR: No config found.");
-            process.exit(1);
         }
+
+        // TODO: Make these automatically go into a file, etc
+        this.port = 27017;
+        this.ipcPort = 57017;
+        this.private = false;
+        this.developer = true;
+        this.msIP = "master.aceattorneyonline.com";
+        this.name = "test serber";
+        this.description = "lul";
     }
 
     // Loads config from disk, and applies it to this object

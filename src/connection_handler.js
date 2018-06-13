@@ -26,16 +26,21 @@ function removeSocket(key, value) {
 }
 
 // When a client connects, it is handled here
-function clientHandler(socket) {
+function clientHandlerWebsocket(socket) {
     let client = new Client(socket);
     clients[client.name] = client;
+    messageQueue.push(JSON.stringify({
+        client: client.name,
+        event: "connected"
+    }, removeSocket));
+    flushToIPC();
 
     // When a client sends data, it is handled here
-    socket.on("message", (data) => {
+    socket.on("data", (data) => {
         messageQueue.push(JSON.stringify({
             client: client.name,
-            clients: clients,
-            data: data
+            data: data,
+            event: "data"
         }, removeSocket));
         flushToIPC();
     });
@@ -43,10 +48,19 @@ function clientHandler(socket) {
     // When a client disconnects, it is handled here
     socket.on("close", () => {
         delete clients[client.name];
+        messageQueue.push(JSON.stringify({
+            client: client.name,
+            event: "disconnected"
+        }, removeSocket));
+        flushToIPC();
     });
 
     // Connection errors are handled here
-    socket.on("error", (e) => {});
+    socket.on("error", (e) => {
+        if(config.developer){
+            console.error(e);
+        }
+    });
 }
 
 // Handle incoming IPC messages
