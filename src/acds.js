@@ -5,11 +5,13 @@
 
 // imports
 const net = require("net");
-const WebSocket = require('ws');
+const WebSocket = require("ws");
+const events = require("events");
 const ConfigManager = require("./config.js");
+const protocol = require("./protocol.js");
 
 // globals
-let clients;
+let clients = [];
 let config = new ConfigManager();
 let ipcSocket;
 
@@ -27,16 +29,36 @@ function ipcListener(socket) {
         }
         if (typeof input === "undefined" || typeof input.client === "undefined" || typeof input.event === "undefined") {
             console.error("Invalid IPC: Required fields not defined");
+            console.error("Received: ")
+            console.error(input);
             return;
-        }
-        else if(input.event == "connected") {
-            // client connected, dispatch event
-        }
-        else if(input.event == "disconnected") {
-            // client disconnected, dispatch event
-        }
-        else if(input.event == "data") {
-            // client sent data, dispatch event
+        } else if (input.event == "connected") {
+            // Client connected
+            clients[input.client.name] = input.client;
+        } else if (input.event == "disconnected") {
+            // Client disconnected
+            // If client doesn't exist, do nothing
+            if (typeof clients[input.client.name] === "undefined") {
+                return;
+            }
+            delete clients[input.client.name];
+        } else if (input.event == "clients") {
+            // List of clients, sent on reconnect, as logic process probably lost its state
+            // Make sure client list is actually included, otherwise do nohing
+            if (typeof input.clients === undefined) {
+                return;
+            }
+            clients = input.clients;
+        } else if (input.event == "data") {
+            // Client message received
+            // If data is undefined, do nothing
+            if (typeof input.data === undefined) {
+                return;
+            }
+            // If data is empty, do nothing
+            if (input.data.length == 0) {
+                return;
+            }
         }
     });
 }
