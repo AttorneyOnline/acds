@@ -10,7 +10,6 @@ const net = require("net");
 const WebSocket = require('ws');
 const Client = require("./client.js");
 const ConfigManager = require("./config.js");
-const protocol = require("./protocol.js");
 
 // globals
 let messageQueue = []; // A message queue ensures reliable data transmission even when the other process crashes

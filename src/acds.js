@@ -8,7 +8,6 @@ const net = require("net");
 const WebSocket = require("ws");
 const events = require("events");
 const ConfigManager = require("./config.js");
-const protocol = require("./protocol.js");
 
 // globals
 let clients = [];
@@ -63,8 +62,26 @@ function ipcListener(socket) {
     });
 }
 
-// Create IPC listen server
-let server = new WebSocket.Server({
-    port: config.ipcPort
-});
-server.on("connection", ipcListener);
+class Server {
+    constructor() {
+        this.server = null;
+    }
+
+    async start(port = config.port) {
+        if (this.server) throw new Error("Server is already running");
+
+        return new Promise(resolve => {
+            // Create IPC listen server
+            this.server = new WebSocket.Server({ port: port }, () => resolve());
+            this.server.on("connection", ipcListener);
+        });
+    }
+
+    async stop() {
+        return new Promise(resolve => {
+            this.server.close(() => resolve());
+        });
+    }
+}
+
+module.exports = Server;
