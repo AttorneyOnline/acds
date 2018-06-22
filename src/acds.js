@@ -78,8 +78,11 @@ class Server {
     }
 
     async stop() {
+        if (!this.server) throw new Error("Server is not running");
+
         return new Promise(resolve => {
             this.server.close(() => resolve());
+            this.server = null;
         });
     }
 }
