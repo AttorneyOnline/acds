@@ -68,7 +68,9 @@ class Server {
     }
 
     async start(port = config.port) {
-        if (this.server) throw new Error("Server is already running");
+        if (this.server) {
+            throw new Error("Server is already running");
+        }
 
         return new Promise(resolve => {
             // Create IPC listen server
@@ -78,7 +80,9 @@ class Server {
     }
 
     async stop() {
-        if (!this.server) throw new Error("Server is not running");
+        if (!this.server) {
+            throw new Error("Server is not running");
+        }
 
         return new Promise(resolve => {
             this.server.close(() => resolve());
