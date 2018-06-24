@@ -1,32 +1,51 @@
 // Copyright gameboyprinter 2018
 // This file manages configuration loading, saving, etc
 
-// imports
-const fs = require("fs");
+const nconf = require("nconf");
 
-class ConfigManager {
+class Config {
     constructor() {
-        // TODO: Default config and config import
-        if (fs.existsSync("../config/config.json")) {
-            this.reloadConfig();
-        } else {
-            console.error("ERROR: No config found.");
-        }
+        nconf.argv().env().file("config/config.json").defaults({
+            name: "Test server",
+            desc: "Test description",
+            port: 27017,
+            ipcPort: 57017,
+            private: false,
+            developer: true,
+            master: {
+                host: "master.aceattorneyonline.com",
+                port: 27016
+            },
+            password: null,
+            protection: "open",
+            rooms: [
+                {
+                    name: "The First Room",
+                    desc: "It's the first room.",
+                    protection: "open"
+                },
+                {
+                    name: "The Second Room",
+                    protection: "open"
+                }
+            ]
+        });
 
-        // TODO: Make these automatically go into a file, etc
-        this.port = 27017;
-        this.ipcPort = 57017;
-        this.private = false;
-        this.developer = true;
-        this.msIP = "master.aceattorneyonline.com";
-        this.name = "test serber";
-        this.description = "lul";
+        nconf.save();
+    }
+
+    static get(key) {
+        return nconf.get(key);
+    }
+
+    static set(key, value) {
+        nconf.set(key, value);
     }
 
     // Loads config from disk, and applies it to this object
-    reloadConfig() {
-        Object.assign(this, JSON.parse(fs.readFileSync("../config/config.json")));
+    static reload() {
+        nconf.reload();
     }
 }
 
-module.exports = ConfigManager;
+module.exports = Config;

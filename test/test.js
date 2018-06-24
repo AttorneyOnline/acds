@@ -28,20 +28,24 @@ describe('server start/stop', () => {
 
     it('should have a default port', async () => {
         const server = new Server();
-        await assert.doesNotReject(async () => await server.start());
-        await server.stop();
+        try {
+            await assert.doesNotReject(async () => await server.start());
+        } finally {
+            await server.stop();
+        }
     });
 });
 
 describe('client handshake', () => {
-    it('should establish websocket connection', async () => {
+    it('should establish a websocket connection', async () => {
         const server = new Server();
         await server.start(PORT);
-
-        const client = new MockClient();
-        await client.connect();
-        await client.disconnect();
-
-        await server.stop();
+        try {
+            const client = new MockClient();
+            await client.connect(PORT);
+            await client.disconnect();
+        } finally {
+            await server.stop();
+        }
     });
 });

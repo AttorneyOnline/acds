@@ -9,12 +9,12 @@
 const net = require("net");
 const WebSocket = require('ws');
 const Client = require("./client.js");
-const ConfigManager = require("./config.js");
+const Config = require("./config.js");
 
 // globals
 let messageQueue = []; // A message queue ensures reliable data transmission even when the other process crashes
 let clients = {}; // This is a map of socket names to client objects
-let config = new ConfigManager(); // Object of config settings
+let config = new Config(); // Object of config settings
 let ipcSocket; // Socket object representing the IPC TCP connection
 let ipcConnected = false; // Is the IPC socket connected?
 
@@ -58,7 +58,7 @@ function clientHandlerWebsocket(socket) {
 
     // Connection errors are handled here
     socket.on("error", (e) => {
-        if(config.developer){
+        if (config.get("developer")) {
             console.error(e);
         }
     });
@@ -96,7 +96,7 @@ function clientHandler(socket) {
 
     // Connection errors are handled here
     socket.on("error", (e) => {
-        if(config.developer){
+        if (config.get("developer")) {
             console.error(e);
         }
     });
@@ -129,7 +129,7 @@ function ipcHandler(data) {
 // Try to connect to logic handler process
 function tryConnect(callback) {
     // Try to connect...
-    ipcSocket = new WebSocket(`ws://localhost:${config.ipcPort}`);
+    ipcSocket = new WebSocket(`ws://localhost:${config.get("ipcPort")}`);
 
     // If connection is closed, wait 1s and retry
     ipcSocket.on("close", () => {
@@ -166,12 +166,12 @@ function flushToIPC() {
 
 // Start WebSocket listener
 let WSserver = new WebSocket.Server({
-    port: config.webAOPort
+    port: config.get("webAOPort")
 });
 WSserver.on("connection", clientHandlerWebsocket);
 
 let server = net.createServer(clientHandler);
-server.listen(config.port);
+server.listen(config.get("port"));
 
 // This is the call to the tryConnect method.
 // The callback flushes the current message queue

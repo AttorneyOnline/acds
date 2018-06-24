@@ -9,11 +9,11 @@ const WebSocket = require("ws");
 const events = require("events");
 const msgpack = require("msgpack-lite");
 
-const ConfigManager = require("./config.js");
+const Config = require("./config.js");
 
 // globals
 let clients = [];
-let config = new ConfigManager();
+let config = new Config();
 let ipcSocket;
 
 function ipcListener(socket) {
@@ -74,7 +74,7 @@ class Server {
         this.server = null;
     }
 
-    async start(port = config.port) {
+    async start(port = Config.get("port")) {
         if (this.server) {
             throw new Error("Server is already running");
         }
