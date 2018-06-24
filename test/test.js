@@ -1,5 +1,4 @@
 const assert = require('assert');
-const WebSocket = require('ws');
 
 const Server = require('../src/acds');
 const MockClient = require('./MockClient');
