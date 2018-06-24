@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/AttorneyOnline/acds#readme",
   "dependencies": {
+    "msgpack-lite": "^0.1.26",
     "ws": "^5.2.0"
   },
   "devDependencies": {

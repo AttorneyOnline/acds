@@ -7,6 +7,8 @@
 const net = require("net");
 const WebSocket = require("ws");
 const events = require("events");
+const msgpack = require("msgpack-lite");
+
 const ConfigManager = require("./config.js");
 
 // globals
@@ -26,38 +28,43 @@ function ipcListener(socket) {
             console.error("Invalid IPC: Not valid JSON");
             return;
         }
+
         if (typeof input === "undefined" || typeof input.client === "undefined" || typeof input.event === "undefined") {
             console.error("Invalid IPC: Required fields not defined");
             console.error("Received: ")
             console.error(input);
             return;
-        } else if (input.event == "connected") {
+        }
+
+        switch (input.event) {
+        case "connected":
             // Client connected
             clients[input.client.name] = input.client;
-        } else if (input.event == "disconnected") {
+            break;
+        case "disconnected":
             // Client disconnected
             // If client doesn't exist, do nothing
             if (typeof clients[input.client.name] === "undefined") {
                 return;
             }
             delete clients[input.client.name];
-        } else if (input.event == "clients") {
+            break;
+        case "clients":
             // List of clients, sent on reconnect, as logic process probably lost its state
             // Make sure client list is actually included, otherwise do nohing
-            if (typeof input.clients === undefined) {
+            if (typeof input.clients === "undefined") {
                 return;
             }
             clients = input.clients;
-        } else if (input.event == "data") {
+            break;
+        case "data":
             // Client message received
-            // If data is undefined, do nothing
-            if (typeof input.data === undefined) {
+            // If data is undefined or empty, do nothing
+            if (!input.data) {
                 return;
             }
-            // If data is empty, do nothing
-            if (input.data.length == 0) {
-                return;
-            }
+            clients[input.client.name].onData(input.data);
+            break;
         }
     });
 }

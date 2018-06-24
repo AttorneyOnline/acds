@@ -2,21 +2,9 @@ const assert = require('assert');
 const WebSocket = require('ws');
 
 const Server = require('../src/acds');
+const MockClient = require('./MockClient');
 
 const PORT = 5010;
-
-class MockClient {
-    async connect() {
-        this.ws = new WebSocket(`ws://127.0.0.1:${PORT}/`);
-        return new Promise(resolve => {
-            this.ws.addEventListener('open', () => resolve());
-        });
-    }
-
-    async disconnect() {
-        this.ws.close();
-    }
-}
 
 describe('server start/stop', () => {
 	it('should start and stop correctly', async () => {
