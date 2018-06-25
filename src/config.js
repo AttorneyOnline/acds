@@ -4,8 +4,8 @@
 const nconf = require("nconf");
 
 class Config {
-    constructor() {
-        nconf.argv().env().file("config/config.json").defaults({
+    constructor(config_file) {
+        nconf.argv().env().file(config_file).defaults({
             name: "Test server",
             desc: "Test description",
             port: 27017,
