@@ -13,17 +13,13 @@ const Config = require("./config.js");
 const argv = require("minimist")(process.argv.slice(2), {
     alias: {
         h: "help",
-        v: "version",
-        c: "config"
-    },
-    default: {
-        config: "./config/config.json"
+        v: "version"
     }
 });
 
 if(argv.help) {
     console.log(
-        "Usage: node ./src/acds [option...]",
+        "Usage: node ./src/index.js [option...]",
         "\nOptions: \n",
         "  -h, --help             give this help list and exit \n",
         "  -v, --version          print program version and exit \n",
@@ -42,7 +38,7 @@ if(argv.version) {
 
 // globals
 let clients = [];
-let config = new Config(argv.config);
+let config = new Config();
 let ipcSocket;
 
 function ipcListener(socket) {
