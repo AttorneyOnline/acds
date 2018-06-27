@@ -2,10 +2,14 @@
 // This file manages configuration loading, saving, etc
 
 const nconf = require("nconf");
+const argv = require("minimist")(process.argv.slice(2), {
+    alias: { c: "config" },
+    default: { config: "./config/config.json" }
+});
 
 class Config {
     constructor() {
-        nconf.argv().env().file("config/config.json").defaults({
+        nconf.argv().env().file(argv.config).defaults({
             name: "Test server",
             desc: "Test description",
             port: 27017,

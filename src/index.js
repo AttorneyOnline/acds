@@ -1,3 +1,3 @@
-const Server = require('acds');
+const Server = require('./acds');
 
 new Server().start()
