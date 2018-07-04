@@ -5,7 +5,7 @@
   "main": "src/acds.js",
   "scripts": {
     "test": "mocha",
-    "test-coverage": "cross-env NODE_ENV=test nyc --reporter=lcov --reporter=text mocha --compilers js:babel-register test/**/*.js"
+    "test-coverage": "cross-env NODE_ENV=test nyc --all --reporter=lcov --reporter=text mocha --require babel-register test/**/*.js"
   },
   "repository": {
     "type": "git",
@@ -19,6 +19,7 @@
   "homepage": "https://github.com/AttorneyOnline/acds#readme",
   "dependencies": {
     "minimist": "^1.2.0",
+    "ajv": "^6.5.2",
     "msgpack-lite": "^0.1.26",
     "nconf": "^0.10.0",
     "ws": "^5.2.0"

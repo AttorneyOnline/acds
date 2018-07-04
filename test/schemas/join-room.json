@@ -1,0 +1,14 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["join-room"]
+        },
+        "result": {
+            "type": "string",
+            "enum": ["success", "full", "denied"]
+        }
+    },
+    "required": ["id", "result"]
+}

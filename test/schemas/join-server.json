@@ -1,0 +1,17 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["join-server"]
+        },
+        "result": {
+            "type": "string",
+            "enum": ["success", "full", "password", "banned", "other"]
+        },
+        "message": {
+            "type": "string"
+        }
+    },
+    "required": ["id", "result"]
+}

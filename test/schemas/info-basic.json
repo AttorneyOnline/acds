@@ -1,0 +1,69 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["info-basic"]
+        },
+        "name": {
+            "type": "string",
+            "description": "Name of the server"
+        },
+        "version": {
+            "type": "string",
+            "description": "Server implementation version",
+            "examples": [
+                "0.0.1",
+                "1.2.5",
+                "1.0.0",
+                "12.5.2"
+            ]
+        },
+        "player_count": {
+            "type": "integer",
+            "description": "Number of players currently connected",
+            "minimum": 0
+        },
+        "max_players": {
+            "type": "integer",
+            "description": "Maximum permissible number of players",
+            "minimum": 0
+        },
+        "protection": {
+            "type": "string",
+            "enum": ["open", "password", "spectate", "closed"]
+        },
+        "desc": {
+            "type": "string",
+            "description": "Server description"
+        },
+        "auth_challenge": {
+            "type": "array",
+            "description": "UInt8Array representation of the authentication challenge. Passed even when there is no password."
+        },
+        "rooms": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "players": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "desc": {
+                        "type": "string"
+                    },
+                    "protection": {
+                        "type": "string",
+                        "enum": ["open", "spectate", "closed"]
+                    }
+                },
+                "required": ["name", "players", "desc", "protection"]
+            }
+        }
+    },
+    "required": ["id", "name", "version", "player_count", "max_players", "protection", "desc", "auth_challenge", "rooms"]
+}

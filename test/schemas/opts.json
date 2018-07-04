@@ -1,0 +1,13 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["opts"]
+        },
+        "options": {
+            "type": "object"
+        }
+    },
+    "required": ["id", "options"]
+}

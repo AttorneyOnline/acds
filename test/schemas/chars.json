@@ -1,0 +1,29 @@
+{
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["chars"]
+        },
+        "characters": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "asset": {
+                        "type": "string"
+                    },
+                    "protection": {
+                        "type": "string",
+                        "enum": ["open", "used", "protected"]
+                    }
+                },
+                "required": ["asset", "protection"]
+            }
+        },
+        "custom_allowed": {
+            "type": "boolean"
+        }
+    },
+    "required": ["id", "characters", "custom_allowed"]
+}

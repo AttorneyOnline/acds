@@ -5,13 +5,14 @@ const EventEmitter = require("events").EventEmitter;
 const msgpack = require("msgpack-lite");
 const crypto = require("crypto");
 
-const Config = require("./config");
+const Config = require("./Config");
 
 /**
  * Represents a connection with a single client.
  */
 class Client extends EventEmitter {
     constructor(socket) {
+        super();
         this.socket = socket;
         this.name = `${socket._socket.remoteAddress}:${socket._socket.remotePort}`;
         this.challenge = crypto.randomBytes(16);
@@ -43,7 +44,7 @@ class Client extends EventEmitter {
      * @param {Buffer} data raw data received
      */
     onData(data) {
-        msg = msgpack.decode(data);
+        const msg = msgpack.decode(data);
 
         // Check for malformed packet
         if (!msg.id) {
@@ -55,42 +56,43 @@ class Client extends EventEmitter {
 
     /**
      * Registers event handlers.
-     * 
+     *
      * This code should be refactored once decorators are added as a language
      * feature.
      */
     _registerHandlers() {
-        this.on("info-basic", this._handle_info_basic);
-        this.on("join-server", this._handle_join_server);
+        this.on("info-basic", this._handleInfoBasic);
+        this.on("join-server", this._handleJoinServer);
 
-        this.on("asset-list", this._handle_asset_list);
+        this.on("asset-list", this._handleAssetList);
 
-        this.on("chars", this._handle_chars);
-        this.on("join-room", this._handle_join_room);
-        this.on("ooc", this._handle_ooc);
+        this.on("chars", this._handleChars);
+        this.on("join-room", this._handleJoinRoom);
+        this.on("ooc", this._handleOOC);
 
         // TODO: This id should be added to the spec
-        this.on("event", this._handle_event);
+        this.on("event", this._handleEvent);
 
-        this.on("opts", this._handle_opts);
+        this.on("set-opt", this._handleSetOpt);
+        this.on("opts", this._handleOpts);
     }
 
-    _handle_info_basic(data) {
+    _handleInfoBasic(data) {
         // TODO
         this.send({
             id: "info-basic",
             name: Config.get("name"),
             version: Config.get("version"),
-            player_count = null,
-            max_players = null,
+            player_count: null,
+            max_players: null,
             protection: Config.get("protection"),
             desc: Config.get("desc"),
-            auth_challenge = this.challenge,
+            auth_challenge: this.challenge,
             rooms: []
         });
     }
 
-    _handle_join_server({name, auth_response}) {
+    _handleJoinServer({name, auth_response}) {
         this.name = name.substring(0, 32);
         const hmac = crypto.createHmac("sha256", this.challenge);
         hmac.update(Config.get("password") || "");
@@ -102,27 +104,27 @@ class Client extends EventEmitter {
         }
     }
 
-    _handle_asset_list(data) {
+    _handleAssetList(data) {
 
     }
 
-    _handle_chars(data) {
+    _handleChars(data) {
 
     }
 
-    _handle_join_room(data) {
+    _handleJoinRoom(data) {
 
     }
 
-    _handle_ooc(data) {
+    _handleOOC(data) {
 
     }
 
-    _handle_event(data) {
+    _handleEvent(data) {
 
     }
 
-    _handle_opts(data) {
+    _handleOpts(data) {
 
     }
 }

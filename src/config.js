@@ -8,7 +8,7 @@ const argv = require("minimist")(process.argv.slice(2), {
 });
 
 class Config {
-    constructor() {
+    static init() {
         nconf.argv().env().file(argv.config).defaults({
             name: "Test server",
             desc: "Test description",
@@ -32,7 +32,9 @@ class Config {
                     name: "The Second Room",
                     protection: "open"
                 }
-            ]
+            ],
+            assets: [],
+            customCharactersAllowed: false
         });
 
         nconf.save();
@@ -44,6 +46,11 @@ class Config {
 
     static set(key, value) {
         nconf.set(key, value);
+    }
+
+    // To be used for testing only.
+    static overrides(obj) {
+        nconf.overrides(obj);
     }
 
     // Loads config from disk, and applies it to this object

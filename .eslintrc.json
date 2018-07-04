@@ -1,0 +1,13 @@
+{
+    "extends": "standard",
+    "env": {
+        "mocha": true
+    },
+    "rules": {
+        "indent": ["error", 4],
+        "semi": ["error", "always"],
+        "quotes": ["error", "double"],
+        "space-before-function-paren": ["error", "never"],
+        "camelcase": ["off", { "properties": "never", "ignoreDestructuring": true }]
+    }
+}
