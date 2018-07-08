@@ -13,6 +13,9 @@ const Config = require("./Config");
 
 Config.init();
 
+ipc.config.networkPort = Config.get("ipcPort");
+ipc.config.silent = false;
+
 const argv = require("minimist")(process.argv.slice(2), {
     alias: {
         h: "help",
@@ -55,14 +58,14 @@ class Server {
         return wanted;
     }
 
-    async start(port = Config.get("port"), persistent = false) {
+    async start(persistent = false) {
         if (this.server) {
             throw new Error("Server is already running");
         }
 
         return new Promise(resolve => {
             // Create IPC listen server
-            ipc.serveNet(Config.get("ipcPort"), () => {
+            ipc.serveNet(() => {
                 this.server = ipc.server;
                 ipc.server.on("client-connect",
                     (data, socket) => this._onClientConnect(data, socket));
@@ -74,6 +77,7 @@ class Server {
                     (socket, _socketId) => this._onIPCDisconnect(socket));
                 resolve();
             });
+            ipc.server.start();
         });
     }
 

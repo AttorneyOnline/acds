@@ -46,9 +46,14 @@ class ConnectionHandler {
         this.ipcConnected = false;
     }
 
-    async start() {
+    async start(port = Config.get("port")) {
         // Start WebSocket listener
-        this.WSserver = new WebSocket.Server({ port: Config.get("port") });
+        await new Promise(resolve => {
+            this.WSserver = new WebSocket.Server({ port: port }, () => {
+                resolve();
+            });
+        });
+
         this.WSserver.on("connection", (socket) => {
             this.clientHandlerWebsocket(socket);
         });
@@ -57,6 +62,7 @@ class ConnectionHandler {
     }
 
     async stop() {
+        ipc.disconnect("acds");
         return new Promise((resolve, reject) => {
             this.WSserver.close((err) => {
                 if (err) reject(err);
@@ -102,7 +108,7 @@ class ConnectionHandler {
 
     async _startConnection() {
         return new Promise(resolve => {
-            ipc.connectToNet("acds", () => {
+            ipc.connectToNet("acds", Config.get("ipcPort"), () => {
                 this.ipcSocket = ipc.of.acds;
                 this.ipcSocket.on("connect", () => {
                     resolve();

@@ -6,43 +6,44 @@ const MockClient = require("./MockClient");
 
 const PORT = 5010;
 
-describe("server start/stop", () => {
+describe("logic server start/stop", () => {
     it("should start and stop correctly", async function() {
         const server = new Server();
-        await server.start(PORT);
+        await server.start();
         await server.stop();
     });
 
     it("should error if server is already started", async function() {
         const server = new Server();
-        await server.start(PORT);
-        await assert.rejects(async() => server.start(PORT));
+        await server.start();
+        await assert.rejects(async() => server.start());
         await server.stop();
     });
 
     it("should error if server is stopped twice", async function() {
         const server = new Server();
-        await server.start(PORT);
+        await server.start();
         await server.stop();
         await assert.rejects(async() => server.stop());
-    });
-
-    it("should have a default port", async function() {
-        const server = new Server();
-        try {
-            await assert.doesNotReject(async() => server.start());
-        } finally {
-            await server.stop();
-        }
     });
 });
 
 describe("client handshake", function() {
     let server;
+    let listener;
 
     beforeEach("start server", async function() {
         server = new Server();
-        await server.start(PORT);
+        await server.start();
+    });
+
+    beforeEach("start listener", async function() {
+        listener = new ConnectionHandler();
+        await listener.start(PORT);
+    });
+
+    afterEach("stop listener", async function() {
+        await listener.stop();
     });
 
     afterEach("stop server", async function() {
@@ -57,9 +58,20 @@ describe("client handshake", function() {
 });
 
 describe("connection handler", function() {
+    let server;
+
+    beforeEach("start main server", async function() {
+        server = new Server();
+        await server.start();
+    });
+
+    afterEach("stop main server", async function() {
+        await server.stop();
+    });
+
     it("should start and stop correctly", async function() {
         const handler = new ConnectionHandler();
-        handler.start();
+        await handler.start();
         await handler.stop();
     });
 });
