@@ -11,11 +11,41 @@ const Config = require("./Config");
  * Represents a connection with a single client.
  */
 class Client extends EventEmitter {
-    constructor(socket) {
+    constructor(socketId, server) {
         super();
-        this.socket = socket;
-        this.name = `${socket._socket.remoteAddress}:${socket._socket.remotePort}`;
-        this.challenge = crypto.randomBytes(16);
+        this.name = "unconnected";
+        this._socketId = socketId;
+        this.privileged = false;
+        this._roomId = null;
+        this._challenge = crypto.randomBytes(16);
+        this._server = server;
+        this.ipcOrigin = null;
+
+        this._registerHandlers();
+    }
+
+    static fromPersistence(server, obj) {
+        const client = new Client(obj._socketId, server);
+        Object.apply(client, obj);
+    }
+
+    get room() {
+        return this._server.rooms[this._roomId];
+    }
+
+    toJSON() {
+        const keys = [
+            "name",
+            "privileged",
+            "_roomId",
+            "_socketId",
+            "_challenge"
+        ];
+        const wanted = {};
+        keys.forEach((val, _key) => {
+            wanted[val] = this[val];
+        }, this);
+        return wanted;
     }
 
     /**
@@ -23,7 +53,7 @@ class Client extends EventEmitter {
      * @param {Object} data JSON/object data to send
      */
     send(data) {
-        this.socket.send(msgpack.encode(data));
+        this._server.send(this._socketId, msgpack.encode(data));
     }
 
     /**
@@ -32,11 +62,15 @@ class Client extends EventEmitter {
      */
     disconnect(msg) {
         this.send({ id: "disconnect", message: msg });
-        this.socket.close();
+        this._server.disconnect(this._socketId);
     }
 
-    update(newState) {
-        Object.assign(this, newState);
+    /**
+     * Cleans up the client by removing references to it from rooms
+     * and notifying other players of the client's departure.
+     */
+    cleanup() {
+        // TODO: this.room.leave(this);
     }
 
     /**
@@ -87,14 +121,14 @@ class Client extends EventEmitter {
             max_players: null,
             protection: Config.get("protection"),
             desc: Config.get("desc"),
-            auth_challenge: this.challenge,
+            auth_challenge: this._challenge,
             rooms: []
         });
     }
 
     _handleJoinServer({name, auth_response}) {
         this.name = name.substring(0, 32);
-        const hmac = crypto.createHmac("sha256", this.challenge);
+        const hmac = crypto.createHmac("sha256", this._challenge);
         hmac.update(Config.get("password") || "");
         if (auth_response !== hmac.digest()) {
             this.send({ id: "join-server", result: "password" });
@@ -113,19 +147,26 @@ class Client extends EventEmitter {
     }
 
     _handleJoinRoom(data) {
-
+        if (!this.room) {
+            this.disconnect("Client error - cannot join room while already in a room.");
+        }
     }
 
     _handleOOC(data) {
+        // TODO: rate limiting
 
     }
 
     _handleEvent(data) {
-
+        // There is some input handling to be done here, but for now, just
+        // make sure it's something valid on the high-level mVNE op table.
     }
-
     _handleOpts(data) {
-
+        if (this.privileged) {
+            this.send({ id: "opts", options: Config.get() });
+        } else {
+            this.send({ id: "opts", options: {"error": "Access denied"} });
+        }
     }
 }
 

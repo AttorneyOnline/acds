@@ -34,7 +34,8 @@ class Config {
                 }
             ],
             assets: [],
-            customCharactersAllowed: false
+            customCharactersAllowed: false,
+            persistenceFile: "persistence.json"
         });
 
         nconf.save();

@@ -5,9 +5,12 @@
 // as it requires dropping every client and a loss of service.
 
 // imports
-const WebSocket = require("ws");
+const fs = require("fs");
+const ipc = require("node-ipc");
 
+const Client = require("./Client");
 const Config = require("./Config");
+
 Config.init();
 
 const argv = require("minimist")(process.argv.slice(2), {
@@ -36,87 +39,120 @@ if (argv.version) {
     process.exit(0);
 }
 
-// globals
-let clients = [];
-
 class Server {
     constructor() {
         this.server = null;
+        this.clients = {};
+        this.rooms = {};
     }
 
-    async start(port = Config.get("port")) {
+    toJSON() {
+        const keys = ["clients"];
+        const wanted = {};
+        keys.forEach((val, _key) => {
+            wanted[val] = this[val];
+        }, this);
+        return wanted;
+    }
+
+    async start(port = Config.get("port"), persistent = false) {
         if (this.server) {
             throw new Error("Server is already running");
         }
 
         return new Promise(resolve => {
             // Create IPC listen server
-            this.server = new WebSocket.Server({ port: port }, () => resolve());
-            this.server.on("connection", (socket) => this._ipcListener(socket));
+            ipc.serveNet(Config.get("ipcPort"), () => {
+                this.server = ipc.server;
+                ipc.server.on("client-connect",
+                    (data, socket) => this._onClientConnect(data, socket));
+                ipc.server.on("client-disconnect",
+                    (data) => this._onClientDisconnect(data));
+                ipc.server.on("client-data",
+                    (data) => this._onClientData(data));
+                ipc.server.on("socket.disconnected",
+                    (socket, _socketId) => this._onIPCDisconnect(socket));
+                resolve();
+            });
         });
     }
 
-    async stop() {
+    async stop(persist = false) {
         if (!this.server) {
             throw new Error("Server is not running");
         }
 
-        return new Promise(resolve => {
-            this.server.close(() => resolve());
-            this.server = null;
+        if (persist) {
+            await persist();
+        }
+
+        this.server.stop();
+        this.server = null;
+    }
+
+    /**
+     * Persists all server state information to a file in preparation for
+     * a hotswap.
+     */
+    async persist() {
+        return new Promise((resolve, reject) => {
+            fs.writeFile(Config.get("persistenceFile"), JSON.stringify(this), (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
         });
     }
 
-    _ipcListener(socket) {
-        this._ipcSocket = socket;
-
-        // Validate incoming IPC data from client, and then pass it to the handler
-        socket.on("message", (data) => {
-            let input;
-            try {
-                input = JSON.parse(data);
-            } catch (e) {
-                console.error("Invalid IPC: Not valid JSON");
-                return;
-            }
-
-            if (typeof input === "undefined" || typeof input.client === "undefined" || typeof input.event === "undefined") {
-                console.error("Invalid IPC: Required fields not defined");
-                console.error(`Received:\n${input}`);
-                return;
-            }
-
-            switch (input.event) {
-            case "connected":
-                // Client connected
-                clients[input.client.name] = input.client;
-                break;
-            case "disconnected":
-                // Client disconnected
-                // If client doesn't exist, do nothing
-                if (typeof clients[input.client.name] === "undefined") {
-                    return;
+    /** Restores all server state information from a persistence file. */
+    async restore() {
+        return new Promise((resolve, reject) => {
+            fs.readFile(Config.get("persistenceFile"), (err, data) => {
+                if (err) reject(err);
+                else {
+                    Object.apply(this, JSON.parse(data));
+                    resolve();
                 }
-                delete clients[input.client.name];
-                break;
-            case "clients":
-                // List of clients, sent on reconnect, as logic process probably lost its state
-                // Make sure client list is actually included, otherwise do nohing
-                if (typeof input.clients === "undefined") {
-                    return;
-                }
-                clients = input.clients;
-                break;
-            case "data":
-                // Client message received
-                // If data is undefined or empty, do nothing
-                if (!input.data) {
-                    return;
-                }
-                clients[input.client.name].onData(input.data);
-                break;
-            }
+            });
         });
+    }
+
+    send(clientAddr, data) {
+        this.server.emit("client-data", { client: clientAddr, data: data });
+    }
+
+    disconnect(clientAddr) {
+        this.server.emit("client-disconnect", { client: clientAddr });
+    }
+
+    broadcast(data) {
+        this.server.emit("client-broadcast", { data: data });
+    }
+
+    _onClientConnect(msg, ipcSocket) {
+        const client = new Client(msg.client, this);
+        this.clients[msg.client] = client;
+        this.ipcOrigin = ipcSocket;
+    }
+
+    _onClientDisconnect(msg) {
+        this.clients[msg.client].cleanup();
+        delete this.clients[msg.client];
+    }
+
+    _onClientData(msg) {
+        this.clients[msg.client].onData(msg.data);
+    }
+
+    _onIPCDisconnect(ipcSocket) {
+        // If the IPC socket (connection handler) disconnected, we can assume
+        // that it probably crashed, meaning all of the clients on that handler
+        // were disconnected!
+        this.clients.forEach((client, clientId) => {
+            if (client.ipcOrigin === ipcSocket) {
+                client.cleanup();
+                delete this.client[clientId];
+            }
+        }, this);
     }
 }
 
