@@ -105,11 +105,17 @@ class Server {
 
     /** Restores all server state information from a persistence file. */
     async restore() {
-        return new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
             fs.readFile(Config.get("persistenceFile"), (err, data) => {
                 if (err) reject(err);
                 else {
                     Object.apply(this, JSON.parse(data));
+                    // I'll hardcode this for now, but the essence of this
+                    // is to reinstantiate everything in the persistence file.
+                    for (let clientId in this.clients) {
+                        const client = this.clients[clientId];
+                        this.clients[clientId] = Client.fromPersistence(this, client);
+                    }
                     resolve();
                 }
             });
@@ -147,12 +153,13 @@ class Server {
         // If the IPC socket (connection handler) disconnected, we can assume
         // that it probably crashed, meaning all of the clients on that handler
         // were disconnected!
-        this.clients.forEach((client, clientId) => {
+        for (let clientId in this.clients) {
+            const client = this.client[clientId];
             if (client.ipcOrigin === ipcSocket) {
                 client.cleanup();
                 delete this.client[clientId];
             }
-        }, this);
+        }
     }
 }
 
