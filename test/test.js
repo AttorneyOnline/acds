@@ -28,35 +28,6 @@ describe("logic server start/stop", () => {
     });
 });
 
-describe("client handshake", function() {
-    let server;
-    let listener;
-
-    beforeEach("start server", async function() {
-        server = new Server();
-        await server.start();
-    });
-
-    beforeEach("start listener", async function() {
-        listener = new ConnectionHandler();
-        await listener.start(PORT);
-    });
-
-    afterEach("stop listener", async function() {
-        await listener.stop();
-    });
-
-    afterEach("stop server", async function() {
-        await server.stop();
-    });
-
-    it("should establish a websocket connection", async function() {
-        const client = new MockClient();
-        await client.connect(PORT);
-        await client.disconnect();
-    });
-});
-
 describe("connection handler", function() {
     let server;
 
@@ -73,5 +44,38 @@ describe("connection handler", function() {
         const handler = new ConnectionHandler();
         await handler.start();
         await handler.stop();
+    });
+});
+
+describe("client handshake", function() {
+    let server;
+    let listener;
+
+    beforeEach("start server", async function() {
+        console.log("Starting main server");
+        server = new Server();
+        await server.start();
+    });
+
+    beforeEach("start listener", async function() {
+        console.log("Starting listener");
+        listener = new ConnectionHandler();
+        await listener.start(PORT);
+    });
+
+    afterEach("stop listener", async function() {
+        console.log("Stopping listener");
+        await listener.stop();
+    });
+
+    afterEach("stop server", async function() {
+        console.log("Stopping main server");
+        await server.stop();
+    });
+
+    it("should establish a websocket connection", async function() {
+        const client = new MockClient();
+        await client.connect(PORT);
+        await client.disconnect();
     });
 });

@@ -14,7 +14,7 @@ const Config = require("./Config");
 Config.init();
 
 ipc.config.networkPort = Config.get("ipcPort");
-ipc.config.silent = false;
+ipc.config.silent = true;
 
 const argv = require("minimist")(process.argv.slice(2), {
     alias: {

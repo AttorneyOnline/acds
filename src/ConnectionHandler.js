@@ -24,6 +24,7 @@ class ConnectionHandler {
         // A message queue ensures reliable data transmission even when the
         // other process crashes
         this.sendQueue = async.queue((data, cb) => {
+            console.log(`Sending ${data}`);
             // There is no way of checking if we are connected so just
             // catch and put it back in the queue if a bad happens.
             try {
@@ -62,13 +63,56 @@ class ConnectionHandler {
     }
 
     async stop() {
-        ipc.disconnect("acds");
-        return new Promise((resolve, reject) => {
+        // Stop server to drop all of the connections
+        await new Promise((resolve, reject) => {
+            console.log("Dropping all connections...");
+
+            const numClients = this.WSserver.clients.size;
+            const emptyServer = numClients === 0;
+
+            // Only resolve this promise when all clients have successfully
+            // closed
+            let dropped = 0;
+            for (let client of this.WSserver.clients) {
+                client.on("close", () => {
+                    dropped++;
+                    console.log(`Dropped client ${dropped}/${numClients}`);
+                    if (dropped === numClients) {
+                        resolve();
+                    }
+                });
+            }
+
+            // Start closing clients. This callback will only fire when all
+            // clients reach the CLOSING state, but not the CLOSED state, which
+            // means that the "close" event has not fired for each client yet.
             this.WSserver.close((err) => {
                 if (err) reject(err);
-                else resolve();
+                else if (emptyServer) resolve();
             });
         });
+
+        // The disconnect packets are all going to get sent to the main server,
+        // unless the main server is going down as well. In this case, it might
+        // be possible that the main server will go down before this one does,
+        // or it goes down while we are trying to notify it.
+        // We will prevent a race condition by setting a timeout.
+        if (!this.sendQueue.idle()) {
+            console.log("Purging send queue...");
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                    reject(new Error("Timeout waiting for queue to clear"));
+                    this.sendQueue.kill();
+                }, 2000);
+                this.sendQueue.drain = function() {
+                    clearTimeout(timer);
+                    resolve();
+                };
+            });
+        }
+
+        // Now it's safe to disconnect the IPC socket regardless of state.
+        ipc.disconnect("acds");
     }
 
     // When a websocket client connects, it is handled here
@@ -76,7 +120,7 @@ class ConnectionHandler {
         const name = `${socket._socket.remoteAddress}:${socket._socket.remotePort}`;
         this.sockets[name] = socket;
         this.sendQueue.push(JSON.stringify({
-            type: "client-connected",
+            type: "client-connect",
             client: name
         }));
 
@@ -121,12 +165,11 @@ class ConnectionHandler {
     async connect() {
         // Try to connect
         await this._startConnection();
+        console.log("Connected to IPC server");
 
         // node-ipc will try to reconnect automatically
         this.ipcSocket.on("error", () => {
-            if (this.ipcConnected) {
-                console.error("Connection error, retrying...");
-            }
+            console.error("Connection error, retrying...");
             this.ipcConnected = false;
             this.sendQueue.pause();
         });
