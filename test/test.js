@@ -1,6 +1,9 @@
 const assert = require("assert");
 
-const Server = require("../src/acds");
+const Config = require("../src/Config");
+Config.init();
+
+const Server = require("../src/Server");
 const ConnectionHandler = require("../src/ConnectionHandler");
 const MockClient = require("./MockClient");
 
@@ -76,6 +79,21 @@ describe("client handshake", function() {
     it("should establish a websocket connection", async function() {
         const client = new MockClient();
         await client.connect(PORT);
+        await client.disconnect();
+    });
+
+    it("should get basic info", async function() {
+        const client = new MockClient();
+        await client.connect(PORT);
+        await assert.doesNotReject(async() => client.getBasicInfo());
+        await client.disconnect();
+    });
+
+    it("should join a server", async function() {
+        const client = new MockClient();
+        await client.connect(PORT);
+        //await assert.doesNotReject(async() => client.joinServer(Config.get("password")));
+        await client.joinServer(Config.get("password"));
         await client.disconnect();
     });
 });

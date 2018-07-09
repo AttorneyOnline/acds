@@ -8,27 +8,26 @@
 // The other purpose of this file is to advertise the server on the master server.
 
 const WebSocket = require("ws");
-const ipc = require("node-ipc");
 const async = require("async");
+const msgpack = require("msgpack-lite");
+const EventEmitter = require("events").EventEmitter;
 
 const Config = require("./Config");
 
 Config.init();
 
-ipc.config.networkPort = Config.get("ipcPort");
-ipc.config.id = "acds";
-ipc.config.silent = true;
-
-class ConnectionHandler {
+class ConnectionHandler extends EventEmitter {
     constructor() {
+        super();
+
         // A message queue ensures reliable data transmission even when the
         // other process crashes
         this.sendQueue = async.queue((data, cb) => {
-            console.log(`Sending ${data}`);
+            console.log(`Sending ${JSON.stringify(data)}`);
             // There is no way of checking if we are connected so just
             // catch and put it back in the queue if a bad happens.
             try {
-                this.ipcSocket.emit(data.type, data);
+                this.ipcSocket.send(msgpack.encode(data));
             } catch (err) {
                 console.error(err);
                 this.sendQueue.unshift(data);
@@ -112,34 +111,35 @@ class ConnectionHandler {
         }
 
         // Now it's safe to disconnect the IPC socket regardless of state.
-        ipc.disconnect("acds");
+        this.ipcSocket.close();
+        this.removeAllListeners();
     }
 
     // When a websocket client connects, it is handled here
     clientHandlerWebsocket(socket) {
         const name = `${socket._socket.remoteAddress}:${socket._socket.remotePort}`;
         this.sockets[name] = socket;
-        this.sendQueue.push(JSON.stringify({
+        this.sendQueue.push({
             type: "client-connect",
             client: name
-        }));
+        });
 
         // When a client sends data, it is handled here
-        socket.on("data", (data) => {
-            this.sendQueue.push(JSON.stringify({
+        socket.on("message", (data) => {
+            this.sendQueue.push({
                 type: "client-data",
                 client: name,
-                data: data
-            }));
+                data: msgpack.decode(data)
+            });
         });
 
         // When a client disconnects, it is handled here
         socket.on("close", () => {
             delete this.sockets[name];
-            this.sendQueue.push(JSON.stringify({
-                event: "client-disconnect",
+            this.sendQueue.push({
+                type: "client-disconnect",
                 client: name
-            }));
+            });
         });
 
         // Connection errors are handled here
@@ -152,11 +152,9 @@ class ConnectionHandler {
 
     async _startConnection() {
         return new Promise(resolve => {
-            ipc.connectToNet("acds", Config.get("ipcPort"), () => {
-                this.ipcSocket = ipc.of.acds;
-                this.ipcSocket.on("connect", () => {
-                    resolve();
-                });
+            this.ipcSocket = new WebSocket(`ws://localhost:${Config.get("ipcPort")}`);
+            this.ipcSocket.on("open", () => {
+                resolve();
             });
         });
     }
@@ -174,16 +172,21 @@ class ConnectionHandler {
             this.sendQueue.pause();
         });
 
-        // Handle any data received from the other process
-        this.ipcSocket.on("client-data", (msg) => {
-            this.sockets[msg.client].send(msg.data);
+        this.ipcSocket.on("message", (data) => {
+            const msg = msgpack.decode(data);
+            this.emit(msg.type, msg);
         });
 
-        this.ipcSocket.on("client-disconnect", (msg) => {
+        // Handle any data received from the other process
+        this.on("client-data", (msg) => {
+            this.sockets[msg.client].send(msgpack.encode(msg.data));
+        });
+
+        this.on("client-disconnect", (msg) => {
             this.sockets[msg.client].close();
         });
 
-        this.ipcSocket.on("client-broadcast", (msg) => {
+        this.on("client-broadcast", (msg) => {
             this.sockets.forEach((socket) => {
                 socket.send(msg.data);
             });

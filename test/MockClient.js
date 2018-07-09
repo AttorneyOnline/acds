@@ -14,7 +14,7 @@ const SCHEMAS_PATH = path.join(__dirname, "schemas");
  * @param {string} name the name of the schema
  */
 function getSchema(name) {
-    JSON.parse(fs.readFileSync(path.join(SCHEMAS_PATH, `${name}.json`)));
+    return JSON.parse(fs.readFileSync(path.join(SCHEMAS_PATH, `${name}.json`)));
 }
 
 /**
@@ -25,7 +25,10 @@ function getSchema(name) {
 async function parseSchema(data, name) {
     const schema = getSchema(name);
     const validate = new Ajv().compile(schema);
-    return validate(data);
+    const result = await validate(data);
+    if (result === false) {
+        throw new Error(`Error validating data: ${JSON.stringify(validate.errors)}`);
+    }
 }
 
 /**
@@ -35,21 +38,23 @@ async function parseSchema(data, name) {
 class MockClient extends EventEmitter {
     constructor() {
         super();
+        this._socket = null;
         this._connected = false;
         this._joined = false;
         this._currentRoom = null;
+        this._server = null;
     }
 
     async connect(port) {
-        this.ws = new WebSocket(`ws://127.0.0.1:${port}/`);
+        this._socket = new WebSocket(`ws://127.0.0.1:${port}/`);
         return new Promise(resolve => {
-            this.ws.addEventListener("open", () => {
+            this._socket.addEventListener("open", () => {
                 this._connected = true;
                 this._registerHandlers();
                 resolve();
             });
-            this.ws.addEventListener("message", (e) => this._onData(e.data));
-            this.ws.addEventListener("close", (e) => {
+            this._socket.addEventListener("message", (e) => this._onData(e.data));
+            this._socket.addEventListener("close", (e) => {
                 this._connected = false;
                 this._joined = false;
                 this._currentRoom = null;
@@ -62,11 +67,11 @@ class MockClient extends EventEmitter {
      * @param {Object} data JSON/object data to send
      */
     send(data) {
-        this.socket.send(msgpack.encode(data));
+        this._socket.send(msgpack.encode(data));
     }
 
     disconnect() {
-        this.ws.close();
+        this._socket.close();
     }
 
     _checkConnected() {
@@ -81,10 +86,12 @@ class MockClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.send({ id: "info-basic" });
             this.once("info-basic", (data) => {
-                parseSchema(data, "info-basic").then(newData => {
-                    this._server = newData;
-                    resolve(newData);
-                }).catch(err => reject(err));
+                console.log(data);
+                console.log(data.auth_challenge);
+                parseSchema(data, "info-basic").then(() => {
+                    this._server = data;
+                    resolve(data);
+                }).catch(reject);
             });
         });
     }
@@ -97,18 +104,17 @@ class MockClient extends EventEmitter {
         }
 
         return new Promise((resolve, reject) => {
-            const hmac = crypto.createHmac("sha256", this._challenge);
+            const hmac = crypto.createHmac("sha256", this._server.auth_challenge);
             hmac.update(password);
-            this.send({ id: "join-server", auth_response: hmac.digest() });
+            this.send({ id: "join-server", name: "test player", auth_response: hmac.digest() });
             this.once("join-server", (data) => {
-                parseSchema(data, "join-server").then(newData => {
-                    if (newData.result !== "success") {
-                        reject(new Error(`Could not join server: ${newData.result}`));
-                    } else {
-                        this._joined = true;
-                        resolve(newData);
-                    }
-                }).catch(err => reject(err));
+                parseSchema(data, "join-server").catch(reject);
+                if (data.result !== "success") {
+                    reject(new Error(`Could not join server: ${data.result}`));
+                } else {
+                    this._joined = true;
+                    resolve(data);
+                }
             });
         });
     }
@@ -119,11 +125,11 @@ class MockClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.send({ id: "asset-list" });
             this.once("asset-list", (data) => {
-                parseSchema(data, "asset-list").then(newData => {
-                    this._repositories = newData.repositories;
-                    this._assets = newData.assets;
-                    resolve(newData);
-                }).catch(err => reject(err));
+                parseSchema(data, "asset-list").then(() => {
+                    this._repositories = data.repositories;
+                    this._assets = data.assets;
+                    resolve(data);
+                }).catch(reject);
             });
         });
     }
@@ -142,15 +148,15 @@ class MockClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.send({ id: "chars", room_id: roomId });
             this.once("chars", (data) => {
-                parseSchema(data, "chars").then(newData => {
-                    if (newData.room_id === roomId) {
+                parseSchema(data, "chars").then(() => {
+                    if (data.room_id === roomId) {
                         Object.assign({
-                            characters: newData.characters,
-                            custom_allowed: newData.custom_allowed
+                            characters: data.characters,
+                            custom_allowed: data.custom_allowed
                         }, this._server.rooms[roomId]);
-                        resolve(newData);
+                        resolve(data);
                     }
-                }).catch(err => reject(err));
+                }).catch(reject);
             });
         });
     }
@@ -169,14 +175,14 @@ class MockClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.send({ id: "join-room", room_id: roomId, character: character });
             this.once("join-room", (data) => {
-                parseSchema(data, "join-room").then(newData => {
-                    if (newData.result !== "success") {
-                        reject(new Error(`Could not join room ID ${roomId}: ${newData.result}`));
+                parseSchema(data, "join-room").then(() => {
+                    if (data.result !== "success") {
+                        reject(new Error(`Could not join room ID ${roomId}: ${data.result}`));
                     } else {
                         this._currentRoom = roomId;
-                        resolve(newData);
+                        resolve(data);
                     }
-                }).catch(err => reject(err));
+                }).catch(reject);
             });
         });
     }
@@ -197,13 +203,13 @@ class MockClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.send({ id: "opts" });
             this.once("opts", (data) => {
-                parseSchema(data, "opts").then(newData => {
-                    if ("error" in newData.options) {
-                        reject(new Error(`Could not get options: ${newData.options.error}`));
+                parseSchema(data, "opts").then(() => {
+                    if ("error" in data.options) {
+                        reject(new Error(`Could not get options: ${data.options.error}`));
                     } else {
-                        resolve(newData.options);
+                        resolve(data.options);
                     }
-                }).catch(err => reject(err));
+                }).catch(reject);
             });
         });
     }
@@ -214,13 +220,13 @@ class MockClient extends EventEmitter {
         return new Promise((resolve, reject) => {
             this.send({ id: "set-opt", key: key, value: value });
             this.once("set-opt", (data) => {
-                parseSchema(data, "set-opt").then(newData => {
-                    if (newData.result !== "success") {
-                        reject(new Error(`Could not set option ${key}: ${newData.result}`));
+                parseSchema(data, "set-opt").then(() => {
+                    if (data.result !== "success") {
+                        reject(new Error(`Could not set option ${key}: ${data.result}`));
                     } else {
-                        resolve(newData);
+                        resolve(data);
                     }
-                }).catch(err => reject(err));
+                }).catch(reject);
             });
         });
     }

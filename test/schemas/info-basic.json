@@ -38,12 +38,12 @@
             "description": "Server description"
         },
         "auth_challenge": {
-            "type": "array",
-            "description": "UInt8Array representation of the authentication challenge. Passed even when there is no password."
+            "type": "object",
+            "description": "Buffer representation of the authentication challenge. Passed even when there is no password."
         },
         "rooms": {
-            "type": "array",
-            "items": {
+            "type": "object",
+            "additionalProperties": {
                 "type": "object",
                 "properties": {
                     "name": {

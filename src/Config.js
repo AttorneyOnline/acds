@@ -12,6 +12,7 @@ class Config {
         nconf.argv().env().file(argv.config).defaults({
             name: "Test server",
             desc: "Test description",
+            maxPlayers: 32,
             port: 27017,
             ipcPort: 57017,
             private: false,
@@ -20,7 +21,7 @@ class Config {
                 host: "master.aceattorneyonline.com",
                 port: 27016
             },
-            password: null,
+            password: "",
             protection: "open",
             rooms: [
                 {
@@ -36,6 +37,8 @@ class Config {
             assets: [],
             customCharactersAllowed: false,
             persistenceFile: "persistence.json"
+        }).overrides({
+            version: require("../package.json").version
         });
 
         nconf.save();

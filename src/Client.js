@@ -2,7 +2,6 @@
 // This class represents the state of each client
 
 const EventEmitter = require("events").EventEmitter;
-const msgpack = require("msgpack-lite");
 const crypto = require("crypto");
 
 const Config = require("./Config");
@@ -14,7 +13,7 @@ class Client extends EventEmitter {
     constructor(socketId, server) {
         super();
         this.name = "unconnected";
-        this._socketId = socketId;
+        this.socketId = socketId;
         this.privileged = false;
         this._roomId = null;
         this._challenge = crypto.randomBytes(16);
@@ -25,12 +24,12 @@ class Client extends EventEmitter {
     }
 
     static fromPersistence(server, obj) {
-        const client = new Client(obj._socketId, server);
+        const client = new Client(obj.socketId, server);
         Object.apply(client, obj);
     }
 
     get room() {
-        return this._server.rooms[this._roomId];
+        return this._server.rooms[this._roomId] || null;
     }
 
     toJSON() {
@@ -38,7 +37,7 @@ class Client extends EventEmitter {
             "name",
             "privileged",
             "_roomId",
-            "_socketId",
+            "socketId",
             "_challenge"
         ];
         const wanted = {};
@@ -53,7 +52,7 @@ class Client extends EventEmitter {
      * @param {Object} data JSON/object data to send
      */
     send(data) {
-        this._server.send(this._socketId, msgpack.encode(data));
+        this._server.send(this.socketId, data);
     }
 
     /**
@@ -62,7 +61,7 @@ class Client extends EventEmitter {
      */
     disconnect(msg) {
         this.send({ id: "disconnect", message: msg });
-        this._server.disconnect(this._socketId);
+        this._server.disconnect(this.socketId);
     }
 
     /**
@@ -75,11 +74,9 @@ class Client extends EventEmitter {
 
     /**
      * Handles incoming data.
-     * @param {Buffer} data raw data received
+     * @param {object} msg pre-parsed JSON object
      */
-    onData(data) {
-        const msg = msgpack.decode(data);
-
+    onData(msg) {
         // Check for malformed packet
         if (!msg.id) {
             return;
@@ -117,24 +114,29 @@ class Client extends EventEmitter {
             id: "info-basic",
             name: Config.get("name"),
             version: Config.get("version"),
-            player_count: null,
-            max_players: null,
+            player_count: this._server.playerCount,
+            max_players: Config.get("maxPlayers"),
             protection: Config.get("protection"),
             desc: Config.get("desc"),
             auth_challenge: this._challenge,
-            rooms: []
+            rooms: this._server.rooms
         });
     }
 
     _handleJoinServer({name, auth_response}) {
+        if (!name) {
+            this.send({ id: "join-server", result: "other", message: "Invalid name" });
+            return;
+        }
+
         this.name = name.substring(0, 32);
         const hmac = crypto.createHmac("sha256", this._challenge);
         hmac.update(Config.get("password") || "");
-        if (auth_response !== hmac.digest()) {
-            this.send({ id: "join-server", result: "password" });
-        } else {
+        if (hmac.digest().equals(auth_response)) {
             // TODO: try joining player to room and checking a ban list
             this.send({ id: "join-server", result: "success" });
+        } else {
+            this.send({ id: "join-server", result: "password" });
         }
     }
 
@@ -161,6 +163,11 @@ class Client extends EventEmitter {
         // There is some input handling to be done here, but for now, just
         // make sure it's something valid on the high-level mVNE op table.
     }
+
+    _handleSetOpt(data) {
+
+    }
+
     _handleOpts(data) {
         if (this.privileged) {
             this.send({ id: "opts", options: Config.get() });

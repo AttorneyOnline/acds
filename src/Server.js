@@ -6,47 +6,24 @@
 
 // imports
 const fs = require("fs");
-const ipc = require("node-ipc");
+const WebSocket = require("ws");
+const EventEmitter = require("events").EventEmitter;
+const msgpack = require("msgpack-lite");
 
-const Client = require("./Client");
 const Config = require("./Config");
+const Client = require("./Client");
 
-Config.init();
-
-ipc.config.networkPort = Config.get("ipcPort");
-ipc.config.silent = true;
-
-const argv = require("minimist")(process.argv.slice(2), {
-    alias: {
-        h: "help",
-        v: "version"
-    }
-});
-
-if (argv.help) {
-    console.log(
-        "Usage: node ./src/index.js [option...]",
-        "\nOptions: \n",
-        "  -h, --help             give this help list and exit \n",
-        "  -v, --version          print program version and exit \n",
-        "  -c, --config=FILE      use FILE as configuration file, \n",
-        "                         default configuration file is ./config/config.json \n"
-        // "  -w, --warning=LEVEL    set warning level to LEVEL \n"
-    );
-    process.exit(0);
-}
-
-if (argv.version) {
-    const pjson = require("../package.json");
-    console.log(`acds - Animated Chatroom Dedicated Server, version ${pjson.version}`);
-    process.exit(0);
-}
-
-class Server {
+class Server extends EventEmitter {
     constructor() {
+        super();
         this.server = null;
         this.clients = {};
         this.rooms = {};
+    }
+
+    get playerCount() {
+        return Object.values(this.clients)
+            .reduce((prev, client) => prev + (client.room ? 1 : 0), 0);
     }
 
     toJSON() {
@@ -65,19 +42,25 @@ class Server {
 
         return new Promise(resolve => {
             // Create IPC listen server
-            ipc.serveNet(() => {
-                this.server = ipc.server;
-                ipc.server.on("client-connect",
-                    (data, socket) => this._onClientConnect(data, socket));
-                ipc.server.on("client-disconnect",
-                    (data) => this._onClientDisconnect(data));
-                ipc.server.on("client-data",
-                    (data) => this._onClientData(data));
-                ipc.server.on("socket.disconnected",
-                    (socket, _socketId) => this._onIPCDisconnect(socket));
+            this.server = new WebSocket.Server({ port: Config.get("ipcPort") }, () => {
                 resolve();
             });
-            ipc.server.start();
+
+            this.server.on("connection", (socket) => {
+                socket.on("message", (data) => {
+                    const msg = msgpack.decode(data);
+                    this.emit(msg.type, msg, socket);
+                });
+
+                socket.on("close", () => this._onIPCDisconnect(socket));
+            });
+
+            this.on("client-connect",
+                (data, socket) => this._onClientConnect(data, socket));
+            this.on("client-disconnect",
+                (data) => this._onClientDisconnect(data));
+            this.on("client-data",
+                (data) => this._onClientData(data));
         });
     }
 
@@ -90,7 +73,7 @@ class Server {
             await persist();
         }
 
-        this.server.stop();
+        this.server.close();
         this.server = null;
     }
 
@@ -100,7 +83,7 @@ class Server {
      */
     async persist() {
         return new Promise((resolve, reject) => {
-            fs.writeFile(Config.get("persistenceFile"), JSON.stringify(this), (err) => {
+            fs.writeFile(Config.get("persistenceFile"), msgpack.encode(this), (err) => {
                 if (err) reject(err);
                 else resolve();
             });
@@ -113,7 +96,7 @@ class Server {
             fs.readFile(Config.get("persistenceFile"), (err, data) => {
                 if (err) reject(err);
                 else {
-                    Object.apply(this, JSON.parse(data));
+                    Object.apply(this, msgpack.decode(data));
                     // I'll hardcode this for now, but the essence of this
                     // is to reinstantiate everything in the persistence file.
                     for (let clientId in this.clients) {
@@ -127,15 +110,21 @@ class Server {
     }
 
     send(clientAddr, data) {
-        this.server.emit("client-data", { client: clientAddr, data: data });
+        this._sendToHandlers({ type: "client-data", client: clientAddr, data: data });
     }
 
     disconnect(clientAddr) {
-        this.server.emit("client-disconnect", { client: clientAddr });
+        this._sendToHandlers({ type: "client-disconnect", client: clientAddr });
     }
 
     broadcast(data) {
-        this.server.emit("client-broadcast", { data: data });
+        this._sendToHandlers({ type: "client-broadcast", data: data });
+    }
+
+    _sendToHandlers(msg) {
+        this.server.clients.forEach(socket => {
+            socket.send(msgpack.encode(msg));
+        });
     }
 
     _onClientConnect(msg, ipcSocket) {
@@ -158,10 +147,10 @@ class Server {
         // that it probably crashed, meaning all of the clients on that handler
         // were disconnected!
         for (let clientId in this.clients) {
-            const client = this.client[clientId];
+            const client = this.clients[clientId];
             if (client.ipcOrigin === ipcSocket) {
                 client.cleanup();
-                delete this.client[clientId];
+                delete this.clients[clientId];
             }
         }
     }
