@@ -23,19 +23,27 @@ class Config {
             },
             password: "",
             protection: "open",
-            rooms: [
-                {
+            rooms: {
+                "The First Room": {
+                    order: 0,
                     name: "The First Room",
                     desc: "It's the first room.",
-                    protection: "open"
+                    protection: "open",
+                    customAllowed: false
                 },
-                {
+                "The Second Room": {
+                    order: 1,
                     name: "The Second Room",
                     protection: "open"
                 }
-            ],
-            assets: [],
-            customCharactersAllowed: false,
+            },
+            assets: {
+                characters: [],
+                backgrounds: [],
+                music: [],
+                other: []
+            },
+            repositories: [],
             persistenceFile: "persistence.json"
         }).overrides({
             version: require("../package.json").version

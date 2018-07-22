@@ -8,6 +8,10 @@ const Config = require("./Config");
 
 /**
  * Represents a connection with a single client.
+ *
+ * Currently, it is assumed that clients are only connected to one room.
+ * This is bound to change in the future when the protocol increases in
+ * complexity.
  */
 class Client extends EventEmitter {
     constructor(socketId, server) {
@@ -35,9 +39,10 @@ class Client extends EventEmitter {
     toJSON() {
         const keys = [
             "name",
+            "id",
+            "socketId",
             "privileged",
             "_roomId",
-            "socketId",
             "_challenge"
         ];
         const wanted = {};
@@ -49,7 +54,7 @@ class Client extends EventEmitter {
 
     /**
      * Sends structured data to a client as MessagePack data.
-     * @param {Object} data JSON/object data to send
+     * @param {object} data JSON/object data to send
      */
     send(data) {
         this._server.send(this.socketId, data);
@@ -109,7 +114,6 @@ class Client extends EventEmitter {
     }
 
     _handleInfoBasic(data) {
-        // TODO
         this.send({
             id: "info-basic",
             name: Config.get("name"),
@@ -119,7 +123,16 @@ class Client extends EventEmitter {
             protection: Config.get("protection"),
             desc: Config.get("desc"),
             auth_challenge: this._challenge,
-            rooms: this._server.rooms
+            rooms: Object.keys(this._server.rooms).map(roomId => {
+                const room = this._server.rooms[roomId];
+                return {
+                    id: roomId,
+                    name: room.name,
+                    players: room.players.size,
+                    desc: room.desc,
+                    protection: room.protection
+                };
+            })
         });
     }
 
@@ -141,38 +154,69 @@ class Client extends EventEmitter {
     }
 
     _handleAssetList(data) {
-
+        this.send({
+            id: "asset-list",
+            repositories: Config.get("repositories"),
+            assets: Object.values(Config.get("assets"))
+                .reduce((p, v) => [...p, ...v])
+        });
     }
 
     _handleChars(data) {
-
+        const room = this._server.rooms[data.room_id];
+        if (room) {
+            this.send({ id: "chars", characters: room.characters });
+        } else {
+            this.disconnect("Client error - could not find the given room.");
+        }
     }
 
     _handleJoinRoom(data) {
         if (!this.room) {
+            this._roomId = data.room_id;
+            if (this.room) {
+                this.room.join(this, data.character);
+                this.send({ id: "join-room", result: "success" });
+            } else {
+                this.disconnect("Client error - room does not exist.");
+            }
+        } else {
             this.disconnect("Client error - cannot join room while already in a room.");
         }
     }
 
     _handleOOC(data) {
-        // TODO: rate limiting
-
+        this.room.receiveOOC(data, this);
     }
 
     _handleEvent(data) {
         // There is some input handling to be done here, but for now, just
         // make sure it's something valid on the high-level mVNE op table.
+        this.room.receiveEvent(data, this);
     }
 
     _handleSetOpt(data) {
-
+        if (this.privileged) {
+            try {
+                Config.set(data.key, data.value);
+                this.send({ id: "set-opt", result: "success" });
+            } catch (err) {
+                this.send({ id: "set-opt", result: "error", msg: err.message });
+            }
+        } else {
+            this.send({ id: "set-opt", result: "error", msg: "Access denied" });
+        }
     }
 
     _handleOpts(data) {
         if (this.privileged) {
-            this.send({ id: "opts", options: Config.get() });
+            try {
+                this.send({ id: "opts", options: Config.get(data.key) });
+            } catch (err) {
+                this.send({ id: "opts", options: {error: "Key not found"} });
+            }
         } else {
-            this.send({ id: "opts", options: {"error": "Access denied"} });
+            this.send({ id: "opts", options: {error: "Access denied"} });
         }
     }
 }

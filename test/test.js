@@ -92,8 +92,15 @@ describe("client handshake", function() {
     it("should join a server", async function() {
         const client = new MockClient();
         await client.connect(PORT);
-        //await assert.doesNotReject(async() => client.joinServer(Config.get("password")));
+        await assert.doesNotReject(async() => client.joinServer(Config.get("password")));
+        await client.disconnect();
+    });
+
+    it("should join a room", async function() {
+        const client = new MockClient();
+        await client.connect(PORT);
         await client.joinServer(Config.get("password"));
+        await client.joinRoom("The First Room");
         await client.disconnect();
     });
 });

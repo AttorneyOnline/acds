@@ -3,15 +3,14 @@
     "properties": {
         "id": {
             "type": "string",
-            "enum": ["set-opt"]
-        },
-        "result": {
-            "type": "string",
-            "enum": ["success", "error"]
+            "enum": ["ooc"]
         },
         "message": {
             "type": "string"
+        },
+        "player": {
+            "type": "string"
         }
     },
-    "required": ["id", "result"]
+    "required": ["id", "message"]
 }

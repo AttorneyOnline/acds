@@ -141,7 +141,7 @@ class MockClient extends EventEmitter {
             throw new Error("Must be joined in server");
         }
 
-        if (!(roomId in this._server.rooms)) {
+        if (!this._server.rooms[roomId]) {
             throw new Error(`Room ID ${roomId} does not exist`);
         }
 
@@ -168,7 +168,7 @@ class MockClient extends EventEmitter {
             throw new Error("Must be joined in server");
         }
 
-        if (!(roomId in this._server.rooms)) {
+        if (!this._server.rooms.filter(room => room.id === roomId)) {
             throw new Error(`Room ID ${roomId} does not exist`);
         }
 
@@ -260,7 +260,7 @@ class MockClient extends EventEmitter {
     }
 
     _handleDisconnect(data) {
-        console.log(`Disconnected from server: ${data.msg || "(no message)"}`);
+        console.log(`Disconnected from server: ${data.message || "(no message)"}`);
     }
 
     _handleNewAssets(data) {

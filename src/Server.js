@@ -12,6 +12,7 @@ const msgpack = require("msgpack-lite");
 
 const Config = require("./Config");
 const Client = require("./Client");
+const Room = require("./Room");
 
 class Server extends EventEmitter {
     constructor() {
@@ -27,7 +28,7 @@ class Server extends EventEmitter {
     }
 
     toJSON() {
-        const keys = ["clients"];
+        const keys = ["clients", "rooms"];
         const wanted = {};
         keys.forEach((val, _key) => {
             wanted[val] = this[val];
@@ -40,6 +41,15 @@ class Server extends EventEmitter {
             throw new Error("Server is already running");
         }
 
+        // Load rooms from config
+        const rooms = Config.get("rooms");
+        Object.keys(rooms).forEach(roomId => {
+            this.rooms[roomId] = new Room(this, rooms[roomId]);
+        });
+
+        // TODO: restore from persistence
+
+        // Start accepting connections
         return new Promise(resolve => {
             // Create IPC listen server
             this.server = new WebSocket.Server({ port: Config.get("ipcPort") }, () => {

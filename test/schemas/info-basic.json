@@ -42,8 +42,8 @@
             "description": "Buffer representation of the authentication challenge. Passed even when there is no password."
         },
         "rooms": {
-            "type": "object",
-            "additionalProperties": {
+            "type": "array",
+            "items": {
                 "type": "object",
                 "properties": {
                     "name": {
@@ -54,14 +54,14 @@
                         "minimum": 0
                     },
                     "desc": {
-                        "type": "string"
+                        "type": ["string", "null"]
                     },
                     "protection": {
                         "type": "string",
                         "enum": ["open", "spectate", "closed"]
                     }
                 },
-                "required": ["name", "players", "desc", "protection"]
+                "required": ["name", "players", "protection"]
             }
         }
     },
