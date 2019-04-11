@@ -1,15 +1,19 @@
 // Copyright gameboyprinter 2018
 // This file manages configuration loading, saving, etc
 
-const nconf = require("nconf");
-const argv = require("minimist")(process.argv.slice(2), {
+import nconf from "nconf";
+import minimist from "minimist";
+
+const argv = minimist(process.argv.slice(2), {
     alias: { c: "config" },
     default: { config: "./config/config.json" }
 });
 
-class Config {
+export default class Config {
+    private static cfg: nconf.Provider;
+
     static init() {
-        nconf.argv().env().file(argv.config).defaults({
+        Config.cfg = nconf.argv().env().file("global", argv.config).defaults({
             name: "Test server",
             desc: "Test description",
             maxPlayers: 32,
@@ -49,26 +53,24 @@ class Config {
             version: require("../package.json").version
         });
 
-        nconf.save();
+        Config.cfg.save("global");
     }
 
-    static get(key) {
-        return nconf.get(key);
+    static get(key: string) {
+        return Config.cfg.get(key);
     }
 
-    static set(key, value) {
-        nconf.set(key, value);
+    static set(key: string, value: any) {
+        Config.cfg.set(key, value);
     }
 
     // To be used for testing only.
-    static overrides(obj) {
-        nconf.overrides(obj);
+    static overrides(obj: object) {
+        Config.cfg.overrides(obj);
     }
 
     // Loads config from disk, and applies it to this object
     static reload() {
-        nconf.reload();
+        Config.cfg.load();
     }
 }
-
-module.exports = Config;

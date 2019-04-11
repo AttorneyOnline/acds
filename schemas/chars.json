@@ -1,4 +1,5 @@
 {
+    "title": "Chars",
     "type": "object",
     "properties": {
         "id": {
@@ -18,6 +19,7 @@
                         "enum": ["open", "used", "protected"]
                     }
                 },
+                "additionalProperties": false,
                 "required": ["asset", "protection"]
             }
         },
@@ -25,5 +27,6 @@
             "type": "boolean"
         }
     },
+    "additionalProperties": false,
     "required": ["id", "characters", "custom_allowed"]
 }

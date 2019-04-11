@@ -1,17 +1,16 @@
 {
+    "title": "JoinRoom",
     "type": "object",
     "properties": {
         "id": {
             "type": "string",
-            "enum": ["join-server"]
+            "enum": ["join-room"]
         },
         "result": {
             "type": "string",
-            "enum": ["success", "full", "password", "banned", "other"]
-        },
-        "message": {
-            "type": "string"
+            "enum": ["success", "full", "denied"]
         }
     },
+    "additionalProperties": false,
     "required": ["id", "result"]
 }

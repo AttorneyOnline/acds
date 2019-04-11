@@ -1,4 +1,5 @@
 {
+    "title": "InfoBasic",
     "type": "object",
     "properties": {
         "id": {
@@ -46,6 +47,9 @@
             "items": {
                 "type": "object",
                 "properties": {
+                    "id": {
+                        "type": "string"
+                    },
                     "name": {
                         "type": "string"
                     },
@@ -61,9 +65,11 @@
                         "enum": ["open", "spectate", "closed"]
                     }
                 },
-                "required": ["name", "players", "protection"]
+                "additionalProperties": false,
+                "required": ["id", "name", "players", "protection"]
             }
         }
     },
+    "additionalProperties": false,
     "required": ["id", "name", "version", "player_count", "max_players", "protection", "desc", "auth_challenge", "rooms"]
 }

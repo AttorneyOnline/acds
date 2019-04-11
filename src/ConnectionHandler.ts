@@ -7,16 +7,25 @@
 // Additionally, an auto-updater will be possible, and the server won't even go down!
 // The other purpose of this file is to advertise the server on the master server.
 
-const WebSocket = require("ws");
-const async = require("async");
-const msgpack = require("msgpack-lite");
-const EventEmitter = require("events").EventEmitter;
+import { EventEmitter } from "events";
 
-const Config = require("./Config");
+import WebSocket from "ws";
+import async from "async";
+import { AsyncQueue } from "async";
+import msgpack from "msgpack-lite";
+
+import Config from "./Config";
+import { IncomingMessage } from "http";
 
 Config.init();
 
-class ConnectionHandler extends EventEmitter {
+export default class ConnectionHandler extends EventEmitter {
+    private sendQueue: AsyncQueue<object>;
+    private sockets: Map<string, WebSocket>;
+    private ipcSocket: WebSocket;
+    private ipcConnected: boolean;
+    private WSserver: WebSocket.Server;
+
     constructor() {
         super();
 
@@ -37,7 +46,7 @@ class ConnectionHandler extends EventEmitter {
         this.sendQueue.pause();
 
         // This is a map of socket names to socket objects
-        this.sockets = {};
+        this.sockets = new Map();
 
         // Socket object representing the IPC TCP connection
         this.ipcSocket = null;
@@ -54,8 +63,8 @@ class ConnectionHandler extends EventEmitter {
             });
         });
 
-        this.WSserver.on("connection", (socket) => {
-            this.clientHandlerWebsocket(socket);
+        this.WSserver.on("connection", (socket, req) => {
+            this.clientHandlerWebsocket(socket, req);
         });
 
         await this.connect();
@@ -116,16 +125,16 @@ class ConnectionHandler extends EventEmitter {
     }
 
     // When a websocket client connects, it is handled here
-    clientHandlerWebsocket(socket) {
-        const name = `${socket._socket.remoteAddress}:${socket._socket.remotePort}`;
-        this.sockets[name] = socket;
+    clientHandlerWebsocket(socket: WebSocket, req: IncomingMessage) {
+        const name: string = `${req.connection.remoteAddress}:${req.connection.remotePort}`;
+        this.sockets.set(name, socket);
         this.sendQueue.push({
             type: "client-connect",
             client: name
         });
 
         // When a client sends data, it is handled here
-        socket.on("message", (data) => {
+        socket.on("message", (data: Buffer) => {
             this.sendQueue.push({
                 type: "client-data",
                 client: name,
@@ -172,22 +181,22 @@ class ConnectionHandler extends EventEmitter {
             this.sendQueue.pause();
         });
 
-        this.ipcSocket.on("message", (data) => {
+        this.ipcSocket.on("message", (data: Buffer) => {
             const msg = msgpack.decode(data);
             this.emit(msg.type, msg);
         });
 
         // Handle any data received from the other process
-        this.on("client-data", (msg) => {
-            this.sockets[msg.client].send(msgpack.encode(msg.data));
+        this.on("client-data", (msg: { client: string, data: any }) => {
+            this.sockets.get(msg.client).send(msgpack.encode(msg.data));
         });
 
-        this.on("client-disconnect", (msg) => {
-            this.sockets[msg.client].close();
+        this.on("client-disconnect", (msg: { client: string }) => {
+            this.sockets.get(msg.client).close();
         });
 
-        this.on("client-broadcast", (msg) => {
-            this.sockets.forEach((socket) => {
+        this.on("client-broadcast", (msg: { data: any }) => {
+            this.sockets.forEach((socket: WebSocket) => {
                 socket.send(msg.data);
             });
         });

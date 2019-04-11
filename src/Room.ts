@@ -1,6 +1,10 @@
-const crypto = require("crypto");
+import { randomBytes } from "crypto";
 
-const Config = require("./Config");
+import Config from "./Config";
+import Server from "./Server";
+import Client from "./Client";
+
+type Player = { client: Client, character: string };
 
 /**
  * Represents a contained space in which game events occur.
@@ -9,32 +13,28 @@ const Config = require("./Config");
  * a room is a single broadcast group which clients may send and receive messages
  * in.
  */
-class Room {
-    constructor(server, {name, desc, protection, customAllowed}) {
+export default class Room {
+    /**
+     * A unique list of players currently in this room.
+     */
+    private players: Map<string, Player> = new Map();
+    private _server: Server;
+    name: string;
+    desc: string;
+    protection: Symbol;
+    customAllowed: boolean;
+
+    constructor(server: Server, {name, desc, protection, customAllowed}) {
         this._server = server;
-
-        /** @type {string} */
         this.name = name;
-
-        /** @type {string} */
         this.desc = desc;
-
-        /** @type {Symbol} */
         this.protection = protection;
-
-        /** @type {boolean} */
         this.customAllowed = customAllowed;
-
-        /**
-         * A unique list of players currently in this room.
-         * @type {Map<string, object>}
-         */
-        this.players = new Map();
     }
 
     toJSON() {
         const keys = ["name", "desc", "protection", "customAllowed"];
-        const wanted = {};
+        const wanted: any = {};
         keys.forEach((val, _key) => {
             wanted[val] = this[val];
         }, this);
@@ -46,7 +46,8 @@ class Room {
      * Gets a list of characters available for use in the room.
      */
     get characters() {
-        const charsUsed = this.players.values().map(player => player.character);
+        const charsUsed = new Set(Array.from<Player>(this.players.values())
+            .map(player => player.character));
         return Config.get("assets.characters").map(char => {
             return {
                 asset: char,
@@ -60,8 +61,8 @@ class Room {
      * @param {Client} client Client object
      * @param {string} character Character asset ID
      */
-    join(client, character = null) {
-        for (let player of this.players) {
+    join(client: Client, character: string = null) {
+        for (let player of this.players.values()) {
             if (client === player.client && character === player.character) {
                 throw new Error("This client has already joined with this character.");
             }
@@ -71,11 +72,11 @@ class Room {
 
         // Generate a short random ID - cryptographically strong, so chances are
         // pretty low of a collision as long as there are <1000 players in a room.
-        const playerId = crypto.randomBytes(3).toString("hex");
+        const playerId = randomBytes(3).toString("hex");
 
         // This is not everything that gets put into the player state - this
         // is just the initial state.
-        this.players.set(playerId, { client: client, character: character });
+        this.players.set(playerId, { client, character });
 
         return playerId;
     }
@@ -93,9 +94,9 @@ class Room {
      * Broadcasts a message to all players of the room.
      * @param {object} data JSON/object data to be broadcasted
      */
-    broadcast(data) {
+    broadcast(data: object) {
         this.players.forEach(player => {
-            player.send(data);
+            player.client.send(data);
         });
     }
 
@@ -119,5 +120,3 @@ class Room {
         this.broadcast(data);
     }
 }
-
-module.exports = Room;

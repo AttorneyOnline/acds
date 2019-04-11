@@ -1,4 +1,5 @@
 {
+    "title": "AssetList",
     "type": "object",
     "properties": {
         "id": {
@@ -19,5 +20,6 @@
             }
         }
     },
+    "additionalProperties": false,
     "required": ["id", "repositories", "assets"]
 }

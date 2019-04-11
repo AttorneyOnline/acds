@@ -1,10 +1,13 @@
 // Copyright gameboyprinter 2018
 // This class represents the state of each client
 
-const EventEmitter = require("events").EventEmitter;
-const crypto = require("crypto");
+import { EventEmitter } from "events";
+import crypto from "crypto";
+import WebSocket from "ws";
 
-const Config = require("./Config");
+import Config from "./Config";
+import Server from "./Server";
+import { Msg } from "./Messages";
 
 /**
  * Represents a connection with a single client.
@@ -13,8 +16,16 @@ const Config = require("./Config");
  * This is bound to change in the future when the protocol increases in
  * complexity.
  */
-class Client extends EventEmitter {
-    constructor(socketId, server) {
+export default class Client extends EventEmitter {
+    name: string;
+    socketId: string;
+    privileged: boolean;
+    private _roomId: string;
+    private _challenge: Buffer;
+    private _server: Server;
+    ipcOrigin: WebSocket;
+
+    constructor(socketId: string, server: Server) {
         super();
         this.name = "unconnected";
         this.socketId = socketId;
@@ -27,13 +38,13 @@ class Client extends EventEmitter {
         this._registerHandlers();
     }
 
-    static fromPersistence(server, obj) {
-        const client = new Client(obj.socketId, server);
-        Object.apply(client, obj);
-    }
-
     get room() {
         return this._server.rooms[this._roomId] || null;
+    }
+    
+    static fromPersistence(server: Server, obj: Client) {
+        const client = new Client(obj.socketId, server);
+        Object.apply(client, obj);
     }
 
     toJSON() {
@@ -56,7 +67,7 @@ class Client extends EventEmitter {
      * Sends structured data to a client as MessagePack data.
      * @param {object} data JSON/object data to send
      */
-    send(data) {
+    send(data: object) {
         this._server.send(this.socketId, data);
     }
 
@@ -64,7 +75,7 @@ class Client extends EventEmitter {
      * Disconnects the client, sending an optional message.
      * @param {string} msg Optional message
      */
-    disconnect(msg) {
+    disconnect(msg: string) {
         this.send({ id: "disconnect", message: msg });
         this._server.disconnect(this.socketId);
     }
@@ -79,9 +90,9 @@ class Client extends EventEmitter {
 
     /**
      * Handles incoming data.
-     * @param {object} msg pre-parsed JSON object
+     * @param {Msg} msg pre-parsed JSON object
      */
-    onData(msg) {
+    onData(msg: Msg) {
         // Check for malformed packet
         if (!msg.id) {
             return;
@@ -113,7 +124,7 @@ class Client extends EventEmitter {
         this.on("opts", this._handleOpts);
     }
 
-    _handleInfoBasic(data) {
+    _handleInfoBasic(_data) {
         this.send({
             id: "info-basic",
             name: Config.get("name"),
@@ -153,11 +164,12 @@ class Client extends EventEmitter {
         }
     }
 
-    _handleAssetList(data) {
+    _handleAssetList(_data) {
         this.send({
             id: "asset-list",
             repositories: Config.get("repositories"),
-            assets: Object.values(Config.get("assets"))
+            assets: Object.values(Config.get("assets") as
+                { [category: string]: string[] })
                 .reduce((p, v) => [...p, ...v])
         });
     }
@@ -196,29 +208,35 @@ class Client extends EventEmitter {
     }
 
     _handleSetOpt(data) {
-        if (this.privileged) {
+        try {
+            if (!this.privileged) {
+                throw new Error("Access denied");
+            }
+
             try {
                 Config.set(data.key, data.value);
                 this.send({ id: "set-opt", result: "success" });
             } catch (err) {
-                this.send({ id: "set-opt", result: "error", msg: err.message });
+                throw new Error("Key not found");
             }
-        } else {
-            this.send({ id: "set-opt", result: "error", msg: "Access denied" });
+        } catch (err) {
+            this.send({ id: "set-opt", result: "error", msg: err.message });
         }
     }
 
     _handleOpts(data) {
-        if (this.privileged) {
+        try {
+            if (!this.privileged) {
+                throw new Error("Access denied");
+            }
+
             try {
                 this.send({ id: "opts", options: Config.get(data.key) });
             } catch (err) {
-                this.send({ id: "opts", options: {error: "Key not found"} });
+                throw new Error("Key not found");
             }
-        } else {
-            this.send({ id: "opts", options: {error: "Access denied"} });
+        } catch (err) {
+            this.send({ id: "opts", options: { error: err.message } });
         }
     }
 }
-
-module.exports = Client;

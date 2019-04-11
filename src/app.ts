@@ -1,8 +1,8 @@
-const Config = require("./Config");
+import Config from "./Config";
 Config.init();
 
-const Server = require("./Server");
-const ConnectionHandler = require("./ConnectionHandler");
+import Server from "./Server";
+import ConnectionHandler from "./ConnectionHandler";
 
 const argv = require("minimist")(process.argv.slice(2), {
     alias: {

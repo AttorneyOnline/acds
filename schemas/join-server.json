@@ -1,17 +1,19 @@
 {
+    "title": "JoinServer",
     "type": "object",
     "properties": {
         "id": {
             "type": "string",
-            "enum": ["set-opt"]
+            "enum": ["join-server"]
         },
         "result": {
             "type": "string",
-            "enum": ["success", "error"]
+            "enum": ["success", "full", "password", "banned", "other"]
         },
         "message": {
             "type": "string"
         }
     },
+    "additionalProperties": false,
     "required": ["id", "result"]
 }

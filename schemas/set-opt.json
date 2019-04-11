@@ -1,14 +1,19 @@
 {
+    "title": "SetOpt",
     "type": "object",
     "properties": {
         "id": {
             "type": "string",
-            "enum": ["join-room"]
+            "enum": ["set-opt"]
         },
         "result": {
             "type": "string",
-            "enum": ["success", "full", "denied"]
+            "enum": ["success", "error"]
+        },
+        "message": {
+            "type": "string"
         }
     },
+    "additionalProperties": false,
     "required": ["id", "result"]
 }

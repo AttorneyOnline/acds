@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "downlevelIteration": true,
+        "module": "commonjs",
+        "esModuleInterop": true,
+        "sourceMap": true,
+        "target": "es2018",
+        "isolatedModules": true
+    },
+}

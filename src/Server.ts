@@ -5,16 +5,27 @@
 // as it requires dropping every client and a loss of service.
 
 // imports
-const fs = require("fs");
-const WebSocket = require("ws");
-const EventEmitter = require("events").EventEmitter;
-const msgpack = require("msgpack-lite");
+import fs from "fs-extra";
+import { EventEmitter } from "events";
 
-const Config = require("./Config");
-const Client = require("./Client");
-const Room = require("./Room");
+import WebSocket from "ws";
+import msgpack from "msgpack-lite";
 
-class Server extends EventEmitter {
+import Config from "./Config";
+import Client from "./Client";
+import Room from "./Room";
+
+type IPCConnect = { type: "client-connect", client: string };
+type IPCDisconnect = { type: "client-disconnect", client: string };
+type IPCData = { type: "client-data", client: string, data: any };
+type IPCBroadcast = { type: "client-broadcast", data: any };
+type IPCMessage = IPCConnect | IPCDisconnect | IPCData | IPCBroadcast;
+
+export default class Server extends EventEmitter {
+    private server: WebSocket.Server;
+    clients: object;
+    rooms: object;
+
     constructor() {
         super();
         this.server = null;
@@ -22,21 +33,12 @@ class Server extends EventEmitter {
         this.rooms = {};
     }
 
-    get playerCount() {
+    get playerCount(): number {
         return Object.values(this.clients)
             .reduce((prev, client) => prev + (client.room ? 1 : 0), 0);
     }
 
-    toJSON() {
-        const keys = ["clients", "rooms"];
-        const wanted = {};
-        keys.forEach((val, _key) => {
-            wanted[val] = this[val];
-        }, this);
-        return wanted;
-    }
-
-    async start(persistent = false) {
+    async start(persistent = false): Promise<void> {
         if (this.server) {
             throw new Error("Server is already running");
         }
@@ -57,7 +59,7 @@ class Server extends EventEmitter {
             });
 
             this.server.on("connection", (socket) => {
-                socket.on("message", (data) => {
+                socket.on("message", (data: Buffer) => {
                     const msg = msgpack.decode(data);
                     this.emit(msg.type, msg, socket);
                 });
@@ -66,21 +68,21 @@ class Server extends EventEmitter {
             });
 
             this.on("client-connect",
-                (data, socket) => this._onClientConnect(data, socket));
+                (data: IPCConnect, socket) => this._onClientConnect(data, socket));
             this.on("client-disconnect",
-                (data) => this._onClientDisconnect(data));
+                (data: IPCDisconnect) => this._onClientDisconnect(data));
             this.on("client-data",
-                (data) => this._onClientData(data));
+                (data: IPCData) => this._onClientData(data));
         });
     }
 
-    async stop(persist = false) {
+    async stop(persist = false): Promise<void> {
         if (!this.server) {
             throw new Error("Server is not running");
         }
 
         if (persist) {
-            await persist();
+            await this.persist();
         }
 
         this.server.close();
@@ -91,68 +93,66 @@ class Server extends EventEmitter {
      * Persists all server state information to a file in preparation for
      * a hotswap.
      */
-    async persist() {
-        return new Promise((resolve, reject) => {
-            fs.writeFile(Config.get("persistenceFile"), msgpack.encode(this), (err) => {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
+    async persist(): Promise<void> {
+        return fs.writeFile(Config.get("persistenceFile"), msgpack.encode(this));
     }
 
     /** Restores all server state information from a persistence file. */
-    async restore() {
-        await new Promise((resolve, reject) => {
-            fs.readFile(Config.get("persistenceFile"), (err, data) => {
-                if (err) reject(err);
-                else {
-                    Object.apply(this, msgpack.decode(data));
-                    // I'll hardcode this for now, but the essence of this
-                    // is to reinstantiate everything in the persistence file.
-                    for (let clientId in this.clients) {
-                        const client = this.clients[clientId];
-                        this.clients[clientId] = Client.fromPersistence(this, client);
-                    }
-                    resolve();
-                }
-            });
-        });
+    async restore(): Promise<void> {
+        const data = await fs.readFile(Config.get("persistenceFile"));
+        Object.apply(this, msgpack.decode(data));
+
+        // I'll hardcode this for now, but the essence of this
+        // is to reinstantiate everything in the persistence file.
+        for (let clientId in this.clients) {
+            const client = this.clients[clientId];
+            this.clients[clientId] = Client.fromPersistence(this, client);
+        }
     }
 
-    send(clientAddr, data) {
+    toJSON(): object {
+        const keys = ["clients", "rooms"];
+        const wanted = {};
+        keys.forEach((val, _key) => {
+            wanted[val] = this[val];
+        }, this);
+        return wanted;
+    }
+
+    send(clientAddr: string, data: object) {
         this._sendToHandlers({ type: "client-data", client: clientAddr, data: data });
     }
 
-    disconnect(clientAddr) {
+    disconnect(clientAddr: string) {
         this._sendToHandlers({ type: "client-disconnect", client: clientAddr });
     }
 
-    broadcast(data) {
+    broadcast(data: object) {
         this._sendToHandlers({ type: "client-broadcast", data: data });
     }
 
-    _sendToHandlers(msg) {
+    private _sendToHandlers(msg: IPCMessage) {
         this.server.clients.forEach(socket => {
             socket.send(msgpack.encode(msg));
         });
     }
 
-    _onClientConnect(msg, ipcSocket) {
+    private _onClientConnect(msg: IPCConnect, ipcSocket: WebSocket) {
         const client = new Client(msg.client, this);
         this.clients[msg.client] = client;
-        this.ipcOrigin = ipcSocket;
+        client.ipcOrigin = ipcSocket;
     }
 
-    _onClientDisconnect(msg) {
+    private _onClientDisconnect(msg: IPCDisconnect) {
         this.clients[msg.client].cleanup();
         delete this.clients[msg.client];
     }
 
-    _onClientData(msg) {
+    private _onClientData(msg: IPCData) {
         this.clients[msg.client].onData(msg.data);
     }
 
-    _onIPCDisconnect(ipcSocket) {
+    private _onIPCDisconnect(ipcSocket: WebSocket) {
         // If the IPC socket (connection handler) disconnected, we can assume
         // that it probably crashed, meaning all of the clients on that handler
         // were disconnected!
@@ -165,5 +165,3 @@ class Server extends EventEmitter {
         }
     }
 }
-
-module.exports = Server;
