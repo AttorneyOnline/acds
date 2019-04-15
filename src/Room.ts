@@ -32,16 +32,6 @@ export default class Room {
         this.customAllowed = customAllowed;
     }
 
-    toJSON() {
-        const keys = ["name", "desc", "protection", "customAllowed"];
-        const wanted: any = {};
-        keys.forEach((val, _key) => {
-            wanted[val] = this[val];
-        }, this);
-        wanted.players = this.players.values();
-        return wanted;
-    }
-
     /**
      * Gets a list of characters available for use in the room.
      */

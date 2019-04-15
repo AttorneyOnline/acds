@@ -5,6 +5,7 @@
         "esModuleInterop": true,
         "sourceMap": true,
         "target": "es2018",
-        "isolatedModules": true
+        "isolatedModules": true,
+        "outDir": "bin"
     },
 }

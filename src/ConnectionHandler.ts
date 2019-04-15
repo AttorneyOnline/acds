@@ -205,5 +205,3 @@ export default class ConnectionHandler extends EventEmitter {
         this.sendQueue.resume();
     }
 }
-
-module.exports = ConnectionHandler;

@@ -41,27 +41,6 @@ export default class Client extends EventEmitter {
     get room() {
         return this._server.rooms[this._roomId] || null;
     }
-    
-    static fromPersistence(server: Server, obj: Client) {
-        const client = new Client(obj.socketId, server);
-        Object.apply(client, obj);
-    }
-
-    toJSON() {
-        const keys = [
-            "name",
-            "id",
-            "socketId",
-            "privileged",
-            "_roomId",
-            "_challenge"
-        ];
-        const wanted = {};
-        keys.forEach((val, _key) => {
-            wanted[val] = this[val];
-        }, this);
-        return wanted;
-    }
 
     /**
      * Sends structured data to a client as MessagePack data.

@@ -38,7 +38,7 @@ export default class Server extends EventEmitter {
             .reduce((prev, client) => prev + (client.room ? 1 : 0), 0);
     }
 
-    async start(persistent = false): Promise<void> {
+    async start(): Promise<void> {
         if (this.server) {
             throw new Error("Server is already running");
         }
@@ -48,8 +48,6 @@ export default class Server extends EventEmitter {
         Object.keys(rooms).forEach(roomId => {
             this.rooms[roomId] = new Room(this, rooms[roomId]);
         });
-
-        // TODO: restore from persistence
 
         // Start accepting connections
         return new Promise(resolve => {
@@ -76,47 +74,13 @@ export default class Server extends EventEmitter {
         });
     }
 
-    async stop(persist = false): Promise<void> {
+    async stop(): Promise<void> {
         if (!this.server) {
             throw new Error("Server is not running");
         }
 
-        if (persist) {
-            await this.persist();
-        }
-
         this.server.close();
         this.server = null;
-    }
-
-    /**
-     * Persists all server state information to a file in preparation for
-     * a hotswap.
-     */
-    async persist(): Promise<void> {
-        return fs.writeFile(Config.get("persistenceFile"), msgpack.encode(this));
-    }
-
-    /** Restores all server state information from a persistence file. */
-    async restore(): Promise<void> {
-        const data = await fs.readFile(Config.get("persistenceFile"));
-        Object.apply(this, msgpack.decode(data));
-
-        // I'll hardcode this for now, but the essence of this
-        // is to reinstantiate everything in the persistence file.
-        for (let clientId in this.clients) {
-            const client = this.clients[clientId];
-            this.clients[clientId] = Client.fromPersistence(this, client);
-        }
-    }
-
-    toJSON(): object {
-        const keys = ["clients", "rooms"];
-        const wanted = {};
-        keys.forEach((val, _key) => {
-            wanted[val] = this[val];
-        }, this);
-        return wanted;
     }
 
     send(clientAddr: string, data: object) {
