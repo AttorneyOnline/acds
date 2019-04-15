@@ -14,6 +14,7 @@ import msgpack from "msgpack-lite";
 import Config from "./Config";
 import Client from "./Client";
 import Room from "./Room";
+import { ServerMessages } from "./Messages";
 
 type IPCConnect = { type: "client-connect", client: string };
 type IPCDisconnect = { type: "client-disconnect", client: string };
@@ -22,15 +23,12 @@ type IPCBroadcast = { type: "client-broadcast", data: any };
 type IPCMessage = IPCConnect | IPCDisconnect | IPCData | IPCBroadcast;
 
 export default class Server extends EventEmitter {
-    private server: WebSocket.Server;
-    clients: {[clientId: string]: Client};
-    rooms: {[roomId: string]: Room};
+    private server?: WebSocket.Server;
+    clients: { [clientId: string]: Client } = {};
+    rooms: { [roomId: string]: Room } = {};
 
     constructor() {
         super();
-        this.server = null;
-        this.clients = {};
-        this.rooms = {};
     }
 
     get playerCount(): number {
@@ -56,21 +54,38 @@ export default class Server extends EventEmitter {
                 resolve();
             });
 
-            this.server.on("connection", (socket) => {
-                socket.on("message", (data: Buffer) => {
+            this.server.on("connection", (ipcSocket) => {
+                ipcSocket.on("message", (data: Buffer) => {
                     const msg = msgpack.decode(data);
-                    this.emit(msg.type, msg, socket);
+                    this.emit(msg.type, msg, ipcSocket);
                 });
 
-                socket.on("close", () => this._onIPCDisconnect(socket));
+                ipcSocket.on("close", () => {
+                    // If the IPC socket (connection handler) disconnected, we can assume
+                    // that it probably crashed, meaning all of the clients on that handler
+                    // were disconnected!
+                    for (let clientId in this.clients) {
+                        const client = this.clients[clientId];
+                        if (client.ipcOrigin === ipcSocket) {
+                            client.cleanup();
+                            delete this.clients[clientId];
+                        }
+                    }
+                });
             });
 
-            this.on("client-connect",
-                (data: IPCConnect, socket) => this._onClientConnect(data, socket));
-            this.on("client-disconnect",
-                (data: IPCDisconnect) => this._onClientDisconnect(data));
-            this.on("client-data",
-                (data: IPCData) => this._onClientData(data));
+            this.on("client-connect", (data: IPCConnect, ipcSocket) => {
+                const client = new Client(data.client, this);
+                this.clients[data.client] = client;
+                client.ipcOrigin = ipcSocket;
+            });
+            this.on("client-disconnect", (data: IPCDisconnect) => {
+                this.clients[data.client].cleanup();
+                delete this.clients[data.client];
+            });
+            this.on("client-data", (data: IPCData) => {
+                this.clients[data.client].onData(data.data);
+            });
         });
     }
 
@@ -84,48 +99,26 @@ export default class Server extends EventEmitter {
     }
 
     send(clientAddr: string, data: object) {
-        this._sendToHandlers({ type: "client-data", client: clientAddr, data: data });
-    }
-
-    disconnect(clientAddr: string) {
-        this._sendToHandlers({ type: "client-disconnect", client: clientAddr });
-    }
-
-    broadcast(data: object) {
-        this._sendToHandlers({ type: "client-broadcast", data: data });
-    }
-
-    private _sendToHandlers(msg: IPCMessage) {
-        this.server.clients.forEach(socket => {
-            socket.send(msgpack.encode(msg));
+        this._sendIPC({
+            type: "client-data", client: clientAddr, data
         });
     }
 
-    private _onClientConnect(msg: IPCConnect, ipcSocket: WebSocket) {
-        const client = new Client(msg.client, this);
-        this.clients[msg.client] = client;
-        client.ipcOrigin = ipcSocket;
+    disconnect(clientAddr: string) {
+        this._sendIPC({
+            type: "client-disconnect", client: clientAddr
+        });
     }
 
-    private _onClientDisconnect(msg: IPCDisconnect) {
-        this.clients[msg.client].cleanup();
-        delete this.clients[msg.client];
+    broadcast(data: ServerMessages.Msg) {
+        this._sendIPC({
+            type: "client-broadcast", data
+        });
     }
 
-    private _onClientData(msg: IPCData) {
-        this.clients[msg.client].onData(msg.data);
-    }
-
-    private _onIPCDisconnect(ipcSocket: WebSocket) {
-        // If the IPC socket (connection handler) disconnected, we can assume
-        // that it probably crashed, meaning all of the clients on that handler
-        // were disconnected!
-        for (let clientId in this.clients) {
-            const client = this.clients[clientId];
-            if (client.ipcOrigin === ipcSocket) {
-                client.cleanup();
-                delete this.clients[clientId];
-            }
-        }
+    private _sendIPC(msg: IPCMessage) {
+        this.server.clients.forEach(socket => {
+            socket.send(msgpack.encode(msg));
+        });
     }
 }

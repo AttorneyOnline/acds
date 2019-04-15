@@ -118,7 +118,7 @@ export default class Client extends EventEmitter {
                 return {
                     id: roomId,
                     name: room.name,
-                    players: room.players.size,
+                    players: room.playerCount,
                     desc: room.desc,
                     protection: room.protection
                 };
@@ -160,7 +160,7 @@ export default class Client extends EventEmitter {
                 id: "chars",
                 room_id: data.room_id,
                 characters: room.characters,
-                custom_allowed: room.custom_allowed
+                custom_allowed: room.customAllowed
             });
         } else {
             this.disconnect("Client error - could not find the given room.");

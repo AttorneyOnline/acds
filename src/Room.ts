@@ -18,11 +18,11 @@ export default class Room {
     /**
      * A unique list of players currently in this room.
      */
-    private players: Map<string, Player> = new Map();
+    private players: { [playerId: string]: Player } = {};
     private _server: Server;
     name: string;
     desc: string;
-    protection: Symbol;
+    protection: "open" | "closed" | "spectate";
     customAllowed: boolean;
 
     constructor(server: Server, {name, desc, protection, customAllowed}) {
@@ -33,11 +33,15 @@ export default class Room {
         this.customAllowed = customAllowed;
     }
 
+    get playerCount() {
+        return Object.keys(this.players).length;
+    }
+
     /**
      * Gets a list of characters available for use in the room.
      */
     get characters() {
-        const charsUsed = new Set(Array.from<Player>(this.players.values())
+        const charsUsed = new Set(Object.values(this.players)
             .map(player => player.character));
         return Config.get("assets.characters").map(char => {
             return {
@@ -53,12 +57,11 @@ export default class Room {
      * @param {string} character Character asset ID
      */
     join(client: Client, character?: string) {
-        for (let player of this.players.values()) {
-            if (client === player.client && character === player.character) {
-                throw new Error("This client has already joined with this character.");
-            }
+        if (Object.values(this.players).filter(player =>
+            player === { client, character }).length > 0) {
             // TODO: new config for disallowing two clients with same character
             // TODO: disallow custom characters per existing config
+            throw new Error("This client has already joined with this character.");
         }
 
         // Generate a short random ID - cryptographically strong, so chances are
@@ -67,7 +70,7 @@ export default class Room {
 
         // This is not everything that gets put into the player state - this
         // is just the initial state.
-        this.players.set(playerId, { client, character });
+        this.players[playerId] = { client, character };
 
         return playerId;
     }
@@ -77,7 +80,7 @@ export default class Room {
      * @param {string} playerId ID of the player
      */
     leave(playerId: string) {
-        this.players.delete(playerId);
+        delete this.players[playerId];
         // TODO: notify all players that a player left
     }
 
@@ -86,7 +89,7 @@ export default class Room {
      * @param {object} data JSON/object data to be broadcasted
      */
     broadcast(data: ServerMessages.Msg) {
-        this.players.forEach(player => {
+        Object.values(this.players).forEach(player => {
             player.client.send(data);
         });
     }
