@@ -1,25 +1,25 @@
 {
-    "title": "AssetList",
-    "type": "object",
-    "properties": {
-        "id": {
-            "type": "string",
-            "enum": ["asset-list"]
-        },
-        "repositories": {
-            "type": "array",
-            "items": {
-                "type": "string",
-                "format": "uri"
-            }
-        },
-        "assets": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        }
+  "title": "AssetList",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["asset-list"]
     },
-    "additionalProperties": false,
-    "required": ["id", "repositories", "assets"]
+    "repositories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "repositories", "assets"]
 }

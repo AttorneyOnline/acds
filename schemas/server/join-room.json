@@ -1,16 +1,16 @@
 {
-    "title": "JoinRoom",
-    "type": "object",
-    "properties": {
-        "id": {
-            "type": "string",
-            "enum": ["join-room"]
-        },
-        "result": {
-            "type": "string",
-            "enum": ["success", "full", "denied"]
-        }
+  "title": "JoinRoom",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["join-room"]
     },
-    "additionalProperties": false,
-    "required": ["id", "result"]
+    "result": {
+      "type": "string",
+      "enum": ["success", "full", "denied"]
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "result"]
 }

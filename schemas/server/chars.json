@@ -1,35 +1,35 @@
 {
-    "title": "Chars",
-    "type": "object",
-    "properties": {
-        "id": {
-            "type": "string",
-            "enum": ["chars"]
-        },
-        "room_id": {
-            "type": "string"
-        },
-        "characters": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "asset": {
-                        "type": "string"
-                    },
-                    "protection": {
-                        "type": "string",
-                        "enum": ["open", "used", "protected"]
-                    }
-                },
-                "additionalProperties": false,
-                "required": ["asset", "protection"]
-            }
-        },
-        "custom_allowed": {
-            "type": "boolean"
-        }
+  "title": "Chars",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["chars"]
     },
-    "additionalProperties": false,
-    "required": ["id", "room_id", "characters", "custom_allowed"]
+    "room_id": {
+      "type": "string"
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "type": "string"
+          },
+          "protection": {
+            "type": "string",
+            "enum": ["open", "used", "protected"]
+          }
+        },
+        "additionalProperties": false,
+        "required": ["asset", "protection"]
+      }
+    },
+    "custom_allowed": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "room_id", "characters", "custom_allowed"]
 }

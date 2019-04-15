@@ -1,15 +1,15 @@
 {
-    "title": "OOC",
-    "type": "object",
-    "properties": {
-        "id": {
-            "type": "string",
-            "enum": ["ooc"]
-        },
-        "message": {
-            "type": "string"
-        }
+  "title": "OOC",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["ooc"]
     },
-    "additionalProperties": false,
-    "required": ["id", "message"]
+    "message": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "message"]
 }

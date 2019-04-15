@@ -1,15 +1,15 @@
 {
-    "title": "Opts",
-    "type": "object",
-    "properties": {
-        "id": {
-            "type": "string",
-            "enum": ["opts"]
-        },
-        "options": {
-            "type": "object"
-        }
+  "title": "Opts",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["opts"]
     },
-    "additionalProperties": false,
-    "required": ["id", "options"]
+    "options": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "options"]
 }

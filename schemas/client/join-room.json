@@ -1,19 +1,19 @@
 {
-    "title": "JoinRoom",
-    "type": "object",
-    "properties": {
-        "id": {
-            "type": "string",
-            "enum": ["join-room"]
-        },
-        "room_id": {
-            "type": "string"
-        },
-        "character": {
-            "type": ["string", "null"],
-            "description": "Asset ID of the character; leave blank to spectate."
-        }
+  "title": "JoinRoom",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["join-room"]
     },
-    "additionalProperties": false,
-    "required": ["id", "room_id"]
+    "room_id": {
+      "type": "string"
+    },
+    "character": {
+      "type": ["string", "null"],
+      "description": "Asset ID of the character; leave blank to spectate."
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "room_id"]
 }

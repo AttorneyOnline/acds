@@ -1,75 +1,80 @@
 {
-    "title": "InfoBasic",
-    "type": "object",
-    "properties": {
-        "id": {
-            "type": "string",
-            "enum": ["info-basic"]
-        },
-        "name": {
-            "type": "string",
-            "description": "Name of the server"
-        },
-        "version": {
-            "type": "string",
-            "description": "Server implementation version",
-            "examples": [
-                "0.0.1",
-                "1.2.5",
-                "1.0.0",
-                "12.5.2"
-            ]
-        },
-        "player_count": {
-            "type": "integer",
-            "description": "Number of players currently connected",
-            "minimum": 0
-        },
-        "max_players": {
-            "type": "integer",
-            "description": "Maximum permissible number of players",
-            "minimum": 0
-        },
-        "protection": {
-            "type": "string",
-            "enum": ["open", "password", "spectate", "closed"]
-        },
-        "desc": {
-            "type": "string",
-            "description": "Server description"
-        },
-        "auth_challenge": {
-            "type": "object",
-            "description": "Buffer representation of the authentication challenge. Passed even when there is no password."
-        },
-        "rooms": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "players": {
-                        "type": "integer",
-                        "minimum": 0
-                    },
-                    "desc": {
-                        "type": ["string", "null"]
-                    },
-                    "protection": {
-                        "type": "string",
-                        "enum": ["open", "spectate", "closed"]
-                    }
-                },
-                "additionalProperties": false,
-                "required": ["id", "name", "players", "protection"]
-            }
-        }
+  "title": "InfoBasic",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["info-basic"]
     },
-    "additionalProperties": false,
-    "required": ["id", "name", "version", "player_count", "max_players", "protection", "desc", "auth_challenge", "rooms"]
+    "name": {
+      "type": "string",
+      "description": "Name of the server"
+    },
+    "version": {
+      "type": "string",
+      "description": "Server implementation version",
+      "examples": ["0.0.1", "1.2.5", "1.0.0", "12.5.2"]
+    },
+    "player_count": {
+      "type": "integer",
+      "description": "Number of players currently connected",
+      "minimum": 0
+    },
+    "max_players": {
+      "type": "integer",
+      "description": "Maximum permissible number of players",
+      "minimum": 0
+    },
+    "protection": {
+      "type": "string",
+      "enum": ["open", "password", "spectate", "closed"]
+    },
+    "desc": {
+      "type": "string",
+      "description": "Server description"
+    },
+    "auth_challenge": {
+      "type": "object",
+      "description": "Buffer representation of the authentication challenge. Passed even when there is no password."
+    },
+    "rooms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "players": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "desc": {
+            "type": ["string", "null"]
+          },
+          "protection": {
+            "type": "string",
+            "enum": ["open", "spectate", "closed"]
+          }
+        },
+        "additionalProperties": false,
+        "required": ["id", "name", "players", "protection"]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "version",
+    "player_count",
+    "max_players",
+    "protection",
+    "desc",
+    "auth_challenge",
+    "rooms"
+  ]
 }

@@ -1,13 +1,13 @@
 {
-    "extends": "standard",
-    "env": {
-        "jest": true
-    },
-    "rules": {
-        "indent": ["error", 4],
-        "semi": ["error", "always"],
-        "quotes": ["error", "double"],
-        "space-before-function-paren": ["error", "never"],
-        "camelcase": ["off", { "properties": "never", "ignoreDestructuring": true }]
-    }
+  "extends": "standard",
+  "env": {
+    "jest": true
+  },
+  "rules": {
+    "indent": ["error", 2],
+    "semi": ["error", "always"],
+    "quotes": ["error", "single"],
+    "space-before-function-paren": ["error", "never"],
+    "camelcase": ["off", { "properties": "never", "ignoreDestructuring": true }]
+  }
 }
