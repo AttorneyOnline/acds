@@ -1,0 +1,12 @@
+{
+    "title": "InfoBasic",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["info-basic"]
+        }
+    },
+    "additionalProperties": false,
+    "required": ["id"]
+}

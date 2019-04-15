@@ -6,6 +6,9 @@
             "type": "string",
             "enum": ["chars"]
         },
+        "room_id": {
+            "type": "string"
+        },
         "characters": {
             "type": "array",
             "items": {
@@ -28,5 +31,5 @@
         }
     },
     "additionalProperties": false,
-    "required": ["id", "characters", "custom_allowed"]
+    "required": ["id", "room_id", "characters", "custom_allowed"]
 }

@@ -1,0 +1,18 @@
+{
+    "title": "SetOpt",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["set-opt"]
+        },
+        "key": {
+            "type": "string"
+        },
+        "value": {
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "required": ["id", "key", "value"]
+}

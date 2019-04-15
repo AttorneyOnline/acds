@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import Config from "./Config";
 import Server from "./Server";
 import Client from "./Client";
+import { ServerMessages, ClientMessages } from "./Messages";
 
 type Player = { client: Client, character: string };
 
@@ -51,7 +52,7 @@ export default class Room {
      * @param {Client} client Client object
      * @param {string} character Character asset ID
      */
-    join(client: Client, character: string = null) {
+    join(client: Client, character?: string) {
         for (let player of this.players.values()) {
             if (client === player.client && character === player.character) {
                 throw new Error("This client has already joined with this character.");
@@ -75,7 +76,7 @@ export default class Room {
      * Causes a player to leave the current room.
      * @param {string} playerId ID of the player
      */
-    leave(playerId) {
+    leave(playerId: string) {
         this.players.delete(playerId);
         // TODO: notify all players that a player left
     }
@@ -84,7 +85,7 @@ export default class Room {
      * Broadcasts a message to all players of the room.
      * @param {object} data JSON/object data to be broadcasted
      */
-    broadcast(data: object) {
+    broadcast(data: ServerMessages.Msg) {
         this.players.forEach(player => {
             player.client.send(data);
         });
@@ -95,7 +96,7 @@ export default class Room {
      * @param {object} data packet data of the event received
      * @param {Client} client client that the event was received from (optional)
      */
-    receiveEvent(data, client = null) {
+    receiveEvent(data, client?: Client) {
         // TODO: sanitize event, flood control, etc.
         this.broadcast(data);
     }
@@ -105,7 +106,7 @@ export default class Room {
      * @param {object} data packet data of the message received
      * @param {Client} client client that the message was received from (optional)
      */
-    receiveOOC(data, client = null) {
+    receiveOOC(data: ClientMessages.OOC, client?: Client) {
         // TODO: like receiveEvent
         this.broadcast(data);
     }

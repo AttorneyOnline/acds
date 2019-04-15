@@ -1,29 +1,46 @@
-const fs = require("fs");
+const fs = require("fs-extra");
+const promisify = require("util").promisify;
 
 const json2ts = require("json-schema-to-typescript");
-const glob = require("glob");
+const glob = promisify(require("glob"));
 const wrap = require("word-wrap");
 
-glob("schemas/*.json", (err, files) => {
-    if (err) throw err;
+const out = "src/Messages.ts";
 
-    const out = "src/Messages.ts";
-    if (fs.existsSync(out)) {
-        fs.unlinkSync(out);
-    }
-
-    fs.appendFileSync(out, json2ts.DEFAULT_OPTIONS.bannerComment + "\n\n");
+async function compileSchemas(files, namespace) {
+    await fs.appendFile(out, `\n\nexport namespace ${namespace} {\n\n`);
 
     const types = [];
     for (const file of files) {
         console.log(file);
         const schema = JSON.parse(fs.readFileSync(file).toString());
-        json2ts.compile(schema, schema.title, { bannerComment: null })
-            .then((ts) => fs.appendFileSync(out, ts + "\n"));
+        const ts = await json2ts.compile(schema, schema.title,
+            { bannerComment: null }
+        );
+        await fs.appendFile(out, ts + "\n");
         types.push(schema.title);
     }
 
-    fs.appendFileSync(out, wrap("export type Msg = " +
-        types.reduce((s, t) => s + " | " + t) + ";\n\n\n",
+    await fs.appendFile(out, wrap("export type Msg = " +
+    types.reduce((s, t) => s + " | " + t) + ";\n\n\n",
     { indent: "", width: 72, newline: "\n  " }));
-});
+
+    await fs.appendFile(out, "}\n");
+}
+
+async function compileAllSchemas() {
+    if (await fs.exists(out)) {
+        await fs.unlink(out);
+    }
+
+    await fs.appendFile(out, json2ts.DEFAULT_OPTIONS.bannerComment);
+
+    await compileSchemas(
+        await glob("schemas/server/*.json"), "ServerMessages"
+    );
+    await compileSchemas(
+        await glob("schemas/client/*.json"), "ClientMessages"
+    );
+}
+
+compileAllSchemas().catch(console.error);

@@ -23,8 +23,8 @@ type IPCMessage = IPCConnect | IPCDisconnect | IPCData | IPCBroadcast;
 
 export default class Server extends EventEmitter {
     private server: WebSocket.Server;
-    clients: object;
-    rooms: object;
+    clients: {[clientId: string]: Client};
+    rooms: {[roomId: string]: Room};
 
     constructor() {
         super();

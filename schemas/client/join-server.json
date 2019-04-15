@@ -1,0 +1,19 @@
+{
+    "title": "JoinServer",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["join-server"]
+        },
+        "name": {
+            "type": "string"
+        },
+        "auth_response": {
+            "type": "object",
+            "description": "hmac-sha256(auth_challenge, password). Required even when there is no password."
+        }
+    },
+    "additionalProperties": false,
+    "required": ["id", "name", "auth_response"]
+}

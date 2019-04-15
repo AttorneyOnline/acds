@@ -56,7 +56,7 @@ export default class Config {
         Config.cfg.save("global");
     }
 
-    static get(key: string) {
+    static get(key?: string) {
         return Config.cfg.get(key);
     }
 

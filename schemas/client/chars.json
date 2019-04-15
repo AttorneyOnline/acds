@@ -1,0 +1,15 @@
+{
+    "title": "Chars",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["chars"]
+        },
+        "room_id": {
+            "type": "string"
+        }
+    },
+    "additionalProperties": false,
+    "required": ["id", "room_id"]
+}

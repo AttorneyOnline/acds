@@ -6,9 +6,9 @@ import { EventEmitter } from "events";
 import WebSocket from "ws";
 import msgpack from "msgpack-lite";
 import Ajv from "ajv";
-import { InfoBasic, Msg, Chars, JoinRoom, Opts, SetOpt, AssetList, JoinServer, OOC } from "../src/Messages";
+import { ServerMessages, ClientMessages } from "../src/Messages";
 
-const SCHEMAS_PATH = "schemas";
+const SCHEMAS_PATH = "schemas/server";
 
 /**
  * Retrieves a schema of a specified name from a constant directory.
@@ -36,8 +36,8 @@ async function parseSchema(data: object, name: string): Promise<void> {
 }
 
 /**
- * A mock client asserts that a connection can be established to the server and
- * that all data is sent correctly in the right order.
+ * A mock client asserts that a connection can be established to the server
+ * and that all data is sent correctly in the right order.
  */
 export default class MockClient extends EventEmitter {
     private _socket?: WebSocket;
@@ -78,7 +78,7 @@ export default class MockClient extends EventEmitter {
      * Sends structured data to a client as MessagePack data.
      * @param {Object} data JSON/object data to send
      */
-    send(data: object) {
+    send(data: ClientMessages.Msg) {
         this._socket.send(msgpack.encode(data));
     }
 
@@ -92,12 +92,12 @@ export default class MockClient extends EventEmitter {
         }
     }
 
-    async getBasicInfo(): Promise<InfoBasic> {
+    async getBasicInfo(): Promise<ServerMessages.InfoBasic> {
         this._checkConnected();
 
         const resp = await this.request({
             id: "info-basic"
-        }, "info-basic") as InfoBasic;
+        }, "info-basic") as ServerMessages.InfoBasic;
 
         console.log(resp);
         console.log(resp.auth_challenge);
@@ -119,7 +119,7 @@ export default class MockClient extends EventEmitter {
             id: "join-server",
             name: "test player",
             auth_response: hmac.digest()
-        }, "join-server") as JoinServer;
+        }, "join-server") as ServerMessages.JoinServer;
 
         if (resp.result !== "success") {
             throw new Error(`Could not join server: ${resp.result}`);
@@ -131,7 +131,7 @@ export default class MockClient extends EventEmitter {
     async getAssets() {
         const resp = await this.request({
             "id": "asset-list"
-        }, "asset-list") as AssetList;
+        }, "asset-list") as ServerMessages.AssetList;
 
         this._repositories = resp.repositories;
         this._assets = resp.assets;
@@ -146,7 +146,8 @@ export default class MockClient extends EventEmitter {
      * @param {string} resId the ID of the response expected from
      * the server
      */
-    async request(req: object, resId: string): Promise<Msg> {
+    async request(req: ClientMessages.Msg, resId: string):
+        Promise<ServerMessages.Msg> {
         this._checkConnected();
 
         const resp = await new Promise((resolve, reject) => {
@@ -159,10 +160,10 @@ export default class MockClient extends EventEmitter {
 
         await parseSchema(resp, resId);
 
-        return resp as Msg;
+        return resp as ServerMessages.Msg;
     }
 
-    async getCharacters(roomId: string): Promise<Chars> {
+    async getCharacters(roomId: string): Promise<ServerMessages.Chars> {
         if (!this._joined) {
             throw new Error("Must be joined in server");
         }
@@ -174,7 +175,7 @@ export default class MockClient extends EventEmitter {
         const resp = await this.request({
             id: "chars",
             room_id: roomId
-        }, "chars") as Chars;
+        }, "chars") as ServerMessages.Chars;
 
         Object.assign({
             characters: resp.characters,
@@ -197,7 +198,7 @@ export default class MockClient extends EventEmitter {
             id: "join-room",
             room_id: roomId,
             character: character
-        }, "join-room") as JoinRoom;
+        }, "join-room") as ServerMessages.JoinRoom;
 
         if (resp.result !== "success") {
             throw new Error(`Could not join room ID ${roomId}: ${resp.result}`);
@@ -217,7 +218,7 @@ export default class MockClient extends EventEmitter {
     }
 
     async getOptions() {
-        const resp = await this.request({ id: "opts" }, "opts") as Opts;
+        const resp = await this.request({ id: "opts" }, "opts") as ServerMessages.Opts;
 
         if ("error" in resp.options) {
             throw new Error(`Could not get options: ${resp.options.error}`);
@@ -233,7 +234,7 @@ export default class MockClient extends EventEmitter {
             id: "set-opt",
             key: key,
             value: value
-        }, "set-opt") as SetOpt;
+        }, "set-opt") as ServerMessages.SetOpt;
 
         if (resp.result !== "success") {
             throw new Error(`Could not set option ${key}: ${resp.result}`);
@@ -270,7 +271,7 @@ export default class MockClient extends EventEmitter {
         this.emit(msg.id, msg);
     }
 
-    _handleDisconnect(data) {
+    _handleDisconnect(data: ServerMessages.Disconnect) {
         console.log(`Disconnected from server: ${data.message || "(no message)"}`);
     }
 
@@ -278,7 +279,7 @@ export default class MockClient extends EventEmitter {
         console.log("Received new assets");
     }
 
-    _handleOOC(data: OOC) {
+    _handleOOC(data: ServerMessages.OOC) {
         console.log(`${data.player}: ${data.message}`);
     }
 
@@ -286,5 +287,3 @@ export default class MockClient extends EventEmitter {
         console.log("Received event from server");
     }
 }
-
-module.exports = MockClient;

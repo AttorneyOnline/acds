@@ -1,0 +1,15 @@
+{
+    "title": "Disconnect",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["disconnect"]
+        },
+        "message": {
+            "type": "string"
+        }
+    },
+    "additionalProperties": false,
+    "required": ["id"]
+}

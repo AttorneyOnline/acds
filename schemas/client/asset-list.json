@@ -1,0 +1,12 @@
+{
+    "title": "AssetList",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "enum": ["asset-list"]
+        }
+    },
+    "additionalProperties": false,
+    "required": ["id"]
+}

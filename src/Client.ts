@@ -7,7 +7,8 @@ import WebSocket from "ws";
 
 import Config from "./Config";
 import Server from "./Server";
-import { Msg } from "./Messages";
+import Room from "./Room";
+import { ServerMessages, ClientMessages } from "./Messages";
 
 /**
  * Represents a connection with a single client.
@@ -20,7 +21,7 @@ export default class Client extends EventEmitter {
     name: string;
     socketId: string;
     privileged: boolean;
-    private _roomId: string;
+    private _room?: Room;
     private _challenge: Buffer;
     private _server: Server;
     ipcOrigin: WebSocket;
@@ -30,7 +31,6 @@ export default class Client extends EventEmitter {
         this.name = "unconnected";
         this.socketId = socketId;
         this.privileged = false;
-        this._roomId = null;
         this._challenge = crypto.randomBytes(16);
         this._server = server;
         this.ipcOrigin = null;
@@ -39,14 +39,14 @@ export default class Client extends EventEmitter {
     }
 
     get room() {
-        return this._server.rooms[this._roomId] || null;
+        return this._room || null;
     }
 
     /**
      * Sends structured data to a client as MessagePack data.
      * @param {object} data JSON/object data to send
      */
-    send(data: object) {
+    send(data: ServerMessages.Msg) {
         this._server.send(this.socketId, data);
     }
 
@@ -71,7 +71,7 @@ export default class Client extends EventEmitter {
      * Handles incoming data.
      * @param {Msg} msg pre-parsed JSON object
      */
-    onData(msg: Msg) {
+    onData(msg: ClientMessages.Msg) {
         // Check for malformed packet
         if (!msg.id) {
             return;
@@ -103,7 +103,7 @@ export default class Client extends EventEmitter {
         this.on("opts", this._handleOpts);
     }
 
-    _handleInfoBasic(_data) {
+    _handleInfoBasic(_data: ClientMessages.InfoBasic) {
         this.send({
             id: "info-basic",
             name: Config.get("name"),
@@ -126,16 +126,16 @@ export default class Client extends EventEmitter {
         });
     }
 
-    _handleJoinServer({name, auth_response}) {
-        if (!name) {
+    _handleJoinServer(data: ClientMessages.JoinServer) {
+        if (!data.name) {
             this.send({ id: "join-server", result: "other", message: "Invalid name" });
             return;
         }
 
-        this.name = name.substring(0, 32);
+        this.name = data.name.substring(0, 32);
         const hmac = crypto.createHmac("sha256", this._challenge);
         hmac.update(Config.get("password") || "");
-        if (hmac.digest().equals(auth_response)) {
+        if (hmac.digest().equals(data.auth_response as Buffer)) {
             // TODO: try joining player to room and checking a ban list
             this.send({ id: "join-server", result: "success" });
         } else {
@@ -143,7 +143,7 @@ export default class Client extends EventEmitter {
         }
     }
 
-    _handleAssetList(_data) {
+    _handleAssetList(_data: ClientMessages.AssetList) {
         this.send({
             id: "asset-list",
             repositories: Config.get("repositories"),
@@ -153,18 +153,23 @@ export default class Client extends EventEmitter {
         });
     }
 
-    _handleChars(data) {
+    _handleChars(data: ClientMessages.Chars) {
         const room = this._server.rooms[data.room_id];
         if (room) {
-            this.send({ id: "chars", characters: room.characters });
+            this.send({
+                id: "chars",
+                room_id: data.room_id,
+                characters: room.characters,
+                custom_allowed: room.custom_allowed
+            });
         } else {
             this.disconnect("Client error - could not find the given room.");
         }
     }
 
-    _handleJoinRoom(data) {
+    _handleJoinRoom(data: ClientMessages.JoinRoom) {
         if (!this.room) {
-            this._roomId = data.room_id;
+            this._room = this._server.rooms[data.room_id];
             if (this.room) {
                 this.room.join(this, data.character);
                 this.send({ id: "join-room", result: "success" });
@@ -176,7 +181,7 @@ export default class Client extends EventEmitter {
         }
     }
 
-    _handleOOC(data) {
+    _handleOOC(data: ClientMessages.OOC) {
         this.room.receiveOOC(data, this);
     }
 
@@ -186,7 +191,7 @@ export default class Client extends EventEmitter {
         this.room.receiveEvent(data, this);
     }
 
-    _handleSetOpt(data) {
+    _handleSetOpt(data: ClientMessages.SetOpt) {
         try {
             if (!this.privileged) {
                 throw new Error("Access denied");
@@ -199,18 +204,18 @@ export default class Client extends EventEmitter {
                 throw new Error("Key not found");
             }
         } catch (err) {
-            this.send({ id: "set-opt", result: "error", msg: err.message });
+            this.send({ id: "set-opt", result: "error", message: err.message });
         }
     }
 
-    _handleOpts(data) {
+    _handleOpts(_data: ClientMessages.Opts) {
         try {
             if (!this.privileged) {
                 throw new Error("Access denied");
             }
 
             try {
-                this.send({ id: "opts", options: Config.get(data.key) });
+                this.send({ id: "opts", options: Config.get() });
             } catch (err) {
                 throw new Error("Key not found");
             }

@@ -5,8 +5,7 @@
 * and run json-schema-to-typescript to regenerate this file.
 */
 
-export type Msg = AssetList | Chars | InfoBasic | JoinRoom | JoinServer 
-  | OOC | Opts | SetOpt;
+export namespace ServerMessages {
 
 export interface AssetList {
   id: "asset-list";
@@ -16,11 +15,17 @@ export interface AssetList {
 
 export interface Chars {
   id: "chars";
+  room_id: string;
   characters: {
     asset: string;
     protection: "open" | "used" | "protected";
   }[];
   custom_allowed: boolean;
+}
+
+export interface Disconnect {
+  id: "disconnect";
+  message?: string;
 }
 
 export interface InfoBasic {
@@ -53,6 +58,7 @@ export interface InfoBasic {
     [k: string]: any;
   };
   rooms: {
+    id: string;
     name: string;
     players: number;
     desc?: string | null;
@@ -90,3 +96,65 @@ export interface SetOpt {
   message?: string;
 }
 
+export type Msg = AssetList | Chars | Disconnect | InfoBasic | JoinRoom 
+  | JoinServer | OOC | Opts | SetOpt;
+
+}
+
+
+export namespace ClientMessages {
+
+export interface AssetList {
+  id: "asset-list";
+}
+
+export interface Chars {
+  id: "chars";
+  room_id: string;
+}
+
+export interface InfoBasic {
+  id: "info-basic";
+}
+
+export interface JoinRoom {
+  id: "join-room";
+  room_id: string;
+  /**
+   * Asset ID of the character; leave blank to spectate.
+   */
+  character?: string | null;
+}
+
+export interface JoinServer {
+  id: "join-server";
+  name: string;
+  /**
+   * hmac-sha256(auth_challenge, password). Required even when there is no password.
+   */
+  auth_response: {
+    [k: string]: any;
+  };
+}
+
+export interface OOC {
+  id: "ooc";
+  message: string;
+}
+
+export interface Opts {
+  id: "opts";
+}
+
+export interface SetOpt {
+  id: "set-opt";
+  key: string;
+  value: {
+    [k: string]: any;
+  };
+}
+
+export type Msg = AssetList | Chars | InfoBasic | JoinRoom | JoinServer 
+  | OOC | Opts | SetOpt;
+
+}
