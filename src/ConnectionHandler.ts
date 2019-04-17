@@ -16,6 +16,7 @@ import msgpack from 'msgpack-lite';
 
 import Config from './Config';
 import { IncomingMessage } from 'http';
+import { ServerMessages } from './Messages';
 
 Config.init();
 
@@ -58,9 +59,7 @@ export default class ConnectionHandler extends EventEmitter {
   async start(port = Config.get('port')) {
     // Start WebSocket listener
     await new Promise(resolve => {
-      this.WSserver = new WebSocket.Server({ port: port }, () => {
-        resolve();
-      });
+      this.WSserver = new WebSocket.Server({ port }, resolve);
     });
 
     this.WSserver.on('connection', (socket, req) => {
@@ -164,9 +163,7 @@ export default class ConnectionHandler extends EventEmitter {
   async _startConnection() {
     return new Promise(resolve => {
       this.ipcSocket = new WebSocket(`ws://localhost:${Config.get('ipcPort')}`);
-      this.ipcSocket.on('open', () => {
-        resolve();
-      });
+      this.ipcSocket.on('open', resolve);
     });
   }
 
@@ -189,17 +186,18 @@ export default class ConnectionHandler extends EventEmitter {
     });
 
     // Handle any data received from the other process
-    this.on('client-data', (msg: { client: string; data: any }) => {
-      this.sockets.get(msg.client).send(msgpack.encode(msg.data));
+    this.on('client-data', (msg: { client: string; data: ServerMessages.Msg }) => {
+      // Ignore error if socket is currently closing
+      this.sockets.get(msg.client).send(msgpack.encode(msg.data), (err) => {});
     });
 
     this.on('client-disconnect', (msg: { client: string }) => {
       this.sockets.get(msg.client).close();
     });
 
-    this.on('client-broadcast', (msg: { data: any }) => {
+    this.on('client-broadcast', (msg: { data: ServerMessages.Msg }) => {
       this.sockets.forEach((socket: WebSocket) => {
-        socket.send(msg.data);
+        socket.send(msgpack.encode(msg.data));
       });
     });
 

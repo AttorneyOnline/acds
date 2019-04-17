@@ -7,8 +7,9 @@ import WebSocket from 'ws';
 
 import Config from './Config';
 import Server from './Server';
-import Room from './Room';
+import { Session } from './Room';
 import { ServerMessages, ClientMessages } from './Messages';
+import { registerEvents, on } from './EventDecorators';
 
 /**
  * Represents a connection with a single client.
@@ -17,45 +18,32 @@ import { ServerMessages, ClientMessages } from './Messages';
  * This is bound to change in the future when the protocol increases in
  * complexity.
  */
+@registerEvents
 export default class Client extends EventEmitter {
-  name: string;
-  socketId: string;
-  privileged: boolean;
-  private _room?: Room;
-  private _challenge: Buffer;
-  private _server: Server;
+  name = 'unconnected';
+  privileged = false;
+
+  private _challenge = crypto.randomBytes(16);
+  private _session: Session;
+
   ipcOrigin: WebSocket;
 
-  constructor(socketId: string, server: Server) {
+  constructor(public socketId: string, private _server: Server) {
     super();
-    this.name = 'unconnected';
-    this.socketId = socketId;
-    this.privileged = false;
-    this._challenge = crypto.randomBytes(16);
-    this._server = server;
-    this.ipcOrigin = null;
-
-    this._registerHandlers();
   }
 
   get room() {
-    return this._room || null;
+    return this._session ? this._session.room : null;
   }
 
-  /**
-   * Sends structured data to a client as MessagePack data.
-   * @param {object} data JSON/object data to send
-   */
+  /** Sends structured data to a client as MessagePack data. */
   send(data: ServerMessages.Msg) {
     this._server.send(this.socketId, data);
   }
 
-  /**
-   * Disconnects the client, sending an optional message.
-   * @param {string} msg Optional message
-   */
-  disconnect(msg: string) {
-    this.send({ id: 'disconnect', message: msg });
+  /** Disconnects the client, sending an optional message. */
+  disconnect(message?: string) {
+    this.send({ id: 'disconnect', message });
     this._server.disconnect(this.socketId);
   }
 
@@ -64,46 +52,19 @@ export default class Client extends EventEmitter {
    * and notifying other players of the client's departure.
    */
   cleanup() {
-    // TODO: this.room.leave(this);
+    if (this.room)
+      this.room.emit('leave', this._session);
   }
 
-  /**
-   * Handles incoming data.
-   * @param {Msg} msg pre-parsed JSON object
-   */
+  /** Handles incoming data. */
   onData(msg: ClientMessages.Msg) {
-    // Check for malformed packet
-    if (!msg.id) {
-      return;
-    }
+    if (!msg.id) return;
 
     this.emit(msg.id, msg);
   }
 
-  /**
-   * Registers event handlers.
-   *
-   * This code should be refactored once decorators are added as a language
-   * feature.
-   */
-  _registerHandlers() {
-    this.on('info-basic', this._handleInfoBasic);
-    this.on('join-server', this._handleJoinServer);
-
-    this.on('asset-list', this._handleAssetList);
-
-    this.on('chars', this._handleChars);
-    this.on('join-room', this._handleJoinRoom);
-    this.on('ooc', this._handleOOC);
-
-    // TODO: This id should be added to the spec
-    this.on('event', this._handleEvent);
-
-    this.on('set-opt', this._handleSetOpt);
-    this.on('opts', this._handleOpts);
-  }
-
-  _handleInfoBasic(_data: ClientMessages.InfoBasic) {
+  @on('info-basic')
+  private onInfoBasic(_data: ClientMessages.InfoBasic) {
     this.send({
       id: 'info-basic',
       name: Config.get('name'),
@@ -126,7 +87,8 @@ export default class Client extends EventEmitter {
     });
   }
 
-  _handleJoinServer(data: ClientMessages.JoinServer) {
+  @on('join-server')
+  private onJoinServer(data: ClientMessages.JoinServer) {
     if (!data.name) {
       this.send({
         id: 'join-server',
@@ -147,7 +109,8 @@ export default class Client extends EventEmitter {
     }
   }
 
-  _handleAssetList(_data: ClientMessages.AssetList) {
+  @on('asset-list')
+  private onAssetList(_data: ClientMessages.AssetList) {
     this.send({
       id: 'asset-list',
       repositories: Config.get('repositories'),
@@ -157,7 +120,8 @@ export default class Client extends EventEmitter {
     });
   }
 
-  _handleChars(data: ClientMessages.Chars) {
+  @on('chars')
+  private onChars(data: ClientMessages.Chars) {
     const room = this._server.rooms[data.room_id];
     if (room) {
       this.send({
@@ -171,33 +135,39 @@ export default class Client extends EventEmitter {
     }
   }
 
-  _handleJoinRoom(data: ClientMessages.JoinRoom) {
-    if (!this.room) {
-      this._room = this._server.rooms[data.room_id];
+  @on('join-room')
+  private onJoinRoom(data: ClientMessages.JoinRoom) {
+    try {
       if (this.room) {
-        this.room.join(this, data.character);
-        this.send({ id: 'join-room', result: 'success' });
-      } else {
-        this.disconnect('Client error - room does not exist.');
+        throw new Error('Client error - cannot join room while already in a room')
       }
-    } else {
-      this.disconnect(
-        'Client error - cannot join room while already in a room.'
-      );
+
+      const room = this._server.rooms[data.room_id];
+      if (!room) {
+        throw new Error('Client error - room does not exist');
+      }
+
+      this._session = room.join(this, data.character);
+      this.send({ id: 'join-room', result: 'success' });
+    } catch (err) {
+      this.disconnect(err.message);
     }
   }
 
-  _handleOOC(data: ClientMessages.OOC) {
-    this.room.receiveOOC(data, this);
+  @on('ooc')
+  private onOOC(data: ClientMessages.OOC) {
+    this.room.emit('ooc', data, this);
   }
 
-  _handleEvent(data) {
+  @on('event')
+  private onEvent(data) {
     // There is some input handling to be done here, but for now, just
     // make sure it's something valid on the high-level mVNE op table.
-    this.room.receiveEvent(data, this);
+    this.room.emit('event', data, this);
   }
 
-  _handleSetOpt(data: ClientMessages.SetOpt) {
+  @on('set-opt')
+  private onSetOpt(data: ClientMessages.SetOpt) {
     try {
       if (!this.privileged) {
         throw new Error('Access denied');
@@ -214,7 +184,8 @@ export default class Client extends EventEmitter {
     }
   }
 
-  _handleOpts(_data: ClientMessages.Opts) {
+  @on('opts')
+  private onOpts(_data: ClientMessages.Opts) {
     try {
       if (!this.privileged) {
         throw new Error('Access denied');

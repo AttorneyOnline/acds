@@ -13,7 +13,7 @@ describe('client handshake', () => {
   let server: Server;
   let listener: ConnectionHandler;
 
-  beforeEach(async() => {
+  beforeAll(async() => {
     server = new Server();
     await server.start();
 
@@ -21,7 +21,7 @@ describe('client handshake', () => {
     await listener.start(PORT);
   });
 
-  afterEach(async() => {
+  afterAll(async() => {
     await listener.stop();
     await server.stop();
   });

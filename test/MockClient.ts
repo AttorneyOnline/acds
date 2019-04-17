@@ -1,47 +1,19 @@
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
 
 import WebSocket from 'ws';
 import msgpack from 'msgpack-lite';
-import Ajv from 'ajv';
 import { ServerMessages, ClientMessages } from '../src/Messages';
+import { parseSchema } from '../src/Validation';
+import { registerEvents, on } from '../src/EventDecorators';
 
 const SCHEMAS_PATH = 'schemas/server';
-
-/**
- * Retrieves a schema of a specified name from a constant directory.
- * @param {string} name the name of the schema
- */
-function getSchema(name: string): object {
-  return JSON.parse(
-    fs.readFileSync(path.join(SCHEMAS_PATH, `${name}.json`)).toString()
-  );
-}
-
-/**
- * Parses data under a specified schema.
- * @param {object} data the data to be parsed
- * @param {string} name the name of the schema
- */
-async function parseSchema(data: object, name: string): Promise<void> {
-  const schema = getSchema(name);
-  const validate = new Ajv().compile(schema);
-  const result = await validate(data);
-  if (result === false) {
-    throw new Error(
-      'Error validating data:\n' +
-        `${JSON.stringify(validate.errors, null, 2)}\n` +
-        `Original:\n${JSON.stringify(data, null, 2)}`
-    );
-  }
-}
 
 /**
  * A mock client asserts that a connection can be established to the server
  * and that all data is sent correctly in the right order.
  */
+@registerEvents
 export default class MockClient extends EventEmitter {
   private _socket?: WebSocket;
   private _connected: boolean;
@@ -61,47 +33,47 @@ export default class MockClient extends EventEmitter {
   }
 
   async connect(port: number) {
+    if (this._socket && this._socket.readyState == WebSocket.OPEN) {
+      this._socket.close();
+    }
+
     this._socket = new WebSocket(`ws://127.0.0.1:${port}/`);
-    return new Promise(resolve => {
-      this._socket.addEventListener('open', () => {
+    return await new Promise((resolve, reject) => {
+      this._socket.on('open', () => {
         this._connected = true;
-        this._registerHandlers();
         resolve();
       });
-      this._socket.addEventListener('message', e => this._onData(e.data));
-      this._socket.addEventListener('close', e => {
+      this._socket.on('message', (data: Buffer) => this._onData(data));
+      this._socket.on('close', () => {
         this._connected = false;
         this._joined = false;
         this._currentRoom = null;
       });
+      this._socket.on('error', reject);
     });
   }
 
-  /**
-   * Sends structured data to a client as MessagePack data.
-   * @param {Object} data JSON/object data to send
-   */
-  send(data: ClientMessages.Msg) {
+  /** Sends structured data to a client as MessagePack data. */
+  protected send(data: ClientMessages.Msg) {
     this._socket.send(msgpack.encode(data));
   }
 
   disconnect() {
-    this._socket.close();
+    if (this._socket.readyState == WebSocket.OPEN)
+      this._socket.close();
   }
 
-  _checkConnected() {
+  private checkConnected() {
     if (!this._connected) {
       throw new Error('Not connected');
     }
   }
 
   async getBasicInfo(): Promise<ServerMessages.InfoBasic> {
-    this._checkConnected();
+    this.checkConnected();
 
     const resp = (await this.request(
-      {
-        id: 'info-basic'
-      },
+      { id: 'info-basic' },
       'info-basic'
     )) as ServerMessages.InfoBasic;
 
@@ -122,11 +94,7 @@ export default class MockClient extends EventEmitter {
     hmac.update(password);
 
     const resp = (await this.request(
-      {
-        id: 'join-server',
-        name: 'test player',
-        auth_response: hmac.digest()
-      },
+      { id: 'join-server', name: 'test player', auth_response: hmac.digest() },
       'join-server'
     )) as ServerMessages.JoinServer;
 
@@ -139,9 +107,7 @@ export default class MockClient extends EventEmitter {
 
   async getAssets() {
     const resp = (await this.request(
-      {
-        id: 'asset-list'
-      },
+      { id: 'asset-list' },
       'asset-list'
     )) as ServerMessages.AssetList;
 
@@ -154,15 +120,14 @@ export default class MockClient extends EventEmitter {
   /**
    * Sends a message to the server and waits for a response of the
    * specified type.
-   * @param {Object} req the message to send to the server
-   * @param {string} resId the ID of the response expected from
-   * the server
+   * @param req the message to send to the server
+   * @param resId the ID of the response expected from the server
    */
-  async request(
+  protected async request(
     req: ClientMessages.Msg,
     resId: string
   ): Promise<ServerMessages.Msg> {
-    this._checkConnected();
+    this.checkConnected();
 
     const resp = await new Promise((resolve, reject) => {
       this.send(req);
@@ -174,7 +139,7 @@ export default class MockClient extends EventEmitter {
       clearTimeout(timeout);
     });
 
-    await parseSchema(resp, resId);
+    await parseSchema(resp, resId, SCHEMAS_PATH);
 
     return resp as ServerMessages.Msg;
   }
@@ -189,18 +154,12 @@ export default class MockClient extends EventEmitter {
     }
 
     const resp = (await this.request(
-      {
-        id: 'chars',
-        room_id: roomId
-      },
+      { id: 'chars', room_id: roomId },
       'chars'
     )) as ServerMessages.Chars;
 
     Object.assign(
-      {
-        characters: resp.characters,
-        custom_allowed: resp.custom_allowed
-      },
+      { characters: resp.characters, custom_allowed: resp.custom_allowed },
       this._server.rooms[roomId]
     );
 
@@ -217,11 +176,7 @@ export default class MockClient extends EventEmitter {
     }
 
     const resp = (await this.request(
-      {
-        id: 'join-room',
-        room_id: roomId,
-        character: character
-      },
+      { id: 'join-room', room_id: roomId, character },
       'join-room'
     )) as ServerMessages.JoinRoom;
 
@@ -233,7 +188,7 @@ export default class MockClient extends EventEmitter {
   }
 
   sendOOC(message: string) {
-    this._checkConnected();
+    this.checkConnected();
 
     if (!this._currentRoom) {
       throw new Error('Must be in a room');
@@ -256,14 +211,10 @@ export default class MockClient extends EventEmitter {
   }
 
   async setOption(key: string, value: object) {
-    this._checkConnected();
+    this.checkConnected();
 
     const resp = (await this.request(
-      {
-        id: 'set-opt',
-        key: key,
-        value: value
-      },
+      { id: 'set-opt', key, value },
       'set-opt'
     )) as ServerMessages.SetOpt;
 
@@ -275,46 +226,36 @@ export default class MockClient extends EventEmitter {
   }
 
   /**
-   * Registers event handlers.
-   *
-   * This code should be refactored once decorators are added as a language
-   * feature.
-   */
-  _registerHandlers() {
-    this.on('disconnect', this._handleDisconnect);
-    this.on('new-assets', this._handleNewAssets);
-    this.on('ooc', this._handleOOC);
-    this.on('event', this._handleEvent);
-  }
-
-  /**
    * Handles incoming data.
-   * @param {Buffer} data raw data received
+   * @param data raw data received
    */
   _onData(data: Buffer) {
     const msg = msgpack.decode(data);
+    if (!msg.id) return;
 
-    // Check for malformed packet
-    if (!msg.id) {
-      return;
+    const handled = this.emit(msg.id, msg);
+    if (!handled) {
+      console.warn(`No handler for ${msg.id} found`);
     }
-
-    this.emit(msg.id, msg);
   }
 
-  _handleDisconnect(data: ServerMessages.Disconnect) {
+  @on('disconnect')
+  private onDisconnect(data: ServerMessages.Disconnect) {
     console.log(`Disconnected from server: ${data.message || '(no message)'}`);
   }
 
-  _handleNewAssets(data) {
+  @on('new-assets')
+  private onNewAssets(data) {
     console.log('Received new assets');
   }
 
-  _handleOOC(data: ServerMessages.OOC) {
+  @on('ooc')
+  private onOOC(data: ServerMessages.OOC) {
     console.log(`${data.player}: ${data.message}`);
   }
 
-  _handleEvent(data) {
+  @on('event')
+  private onEvent(data) {
     console.log('Received event from server');
   }
 }

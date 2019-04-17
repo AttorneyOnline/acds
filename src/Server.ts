@@ -5,7 +5,6 @@
 // as it requires dropping every client and a loss of service.
 
 // imports
-import fs from 'fs-extra';
 import { EventEmitter } from 'events';
 
 import WebSocket from 'ws';
@@ -14,12 +13,13 @@ import msgpack from 'msgpack-lite';
 import Config from './Config';
 import Client from './Client';
 import Room from './Room';
-import { ServerMessages } from './Messages';
+import { ServerMessages, ClientMessages } from './Messages';
 
+type AnyMsg = ClientMessages.Msg | ServerMessages.Msg;
 type IPCConnect = { type: 'client-connect'; client: string };
 type IPCDisconnect = { type: 'client-disconnect'; client: string };
-type IPCData = { type: 'client-data'; client: string; data: any };
-type IPCBroadcast = { type: 'client-broadcast'; data: any };
+type IPCData = { type: 'client-data'; client: string; data: AnyMsg };
+type IPCBroadcast = { type: 'client-broadcast'; data: AnyMsg };
 type IPCMessage = IPCConnect | IPCDisconnect | IPCData | IPCBroadcast;
 
 export default class Server extends EventEmitter {
@@ -50,47 +50,47 @@ export default class Server extends EventEmitter {
     });
 
     // Start accepting connections
-    return new Promise(resolve => {
+    await new Promise(resolve => {
       // Create IPC listen server
       this.server = new WebSocket.Server(
         { port: Config.get('ipcPort') },
-        () => {
-          resolve();
-        }
+        resolve
       );
+    });
 
-      this.server.on('connection', ipcSocket => {
-        ipcSocket.on('message', (data: Buffer) => {
-          const msg = msgpack.decode(data);
-          this.emit(msg.type, msg, ipcSocket);
-        });
+    this.server.on('connection', ipcSocket => {
+      ipcSocket.on('message', (data: Buffer) => {
+        const msg = msgpack.decode(data);
+        this.emit(msg.type, msg, ipcSocket);
+      });
 
-        ipcSocket.on('close', () => {
-          // If the IPC socket (connection handler) disconnected, we can assume
-          // that it probably crashed, meaning all of the clients on that handler
-          // were disconnected!
-          for (let clientId in this.clients) {
-            const client = this.clients[clientId];
-            if (client.ipcOrigin === ipcSocket) {
-              client.cleanup();
-              delete this.clients[clientId];
-            }
+      ipcSocket.on('close', () => {
+        // If the IPC socket (connection handler) disconnected, we can assume
+        // that it probably crashed, meaning all of the clients on that handler
+        // were disconnected!
+        for (let clientId in this.clients) {
+          const client = this.clients[clientId];
+          if (client.ipcOrigin === ipcSocket) {
+            client.cleanup();
+            delete this.clients[clientId];
           }
-        });
+        }
       });
+    });
 
-      this.on('client-connect', (data: IPCConnect, ipcSocket) => {
-        const client = new Client(data.client, this);
-        this.clients[data.client] = client;
-        client.ipcOrigin = ipcSocket;
-      });
-      this.on('client-disconnect', (data: IPCDisconnect) => {
-        this.clients[data.client].cleanup();
-        delete this.clients[data.client];
-      });
-      this.on('client-data', (data: IPCData) => {
-        this.clients[data.client].onData(data.data);
-      });
+    this.on('client-connect', (data: IPCConnect, ipcSocket) => {
+      const client = new Client(data.client, this);
+      this.clients[data.client] = client;
+      client.ipcOrigin = ipcSocket;
+    });
+
+    this.on('client-disconnect', (data: IPCDisconnect) => {
+      this.clients[data.client].cleanup();
+      delete this.clients[data.client];
+    });
+
+    this.on('client-data', (data: IPCData) => {
+      this.clients[data.client].onData(data.data as ClientMessages.Msg);
     });
   }
 
@@ -103,7 +103,7 @@ export default class Server extends EventEmitter {
     this.server = null;
   }
 
-  send(clientAddr: string, data: object) {
+  send(clientAddr: string, data: ServerMessages.Msg) {
     this._sendIPC({
       type: 'client-data',
       client: clientAddr,

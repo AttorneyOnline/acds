@@ -4,8 +4,12 @@ import Config from './Config';
 import Server from './Server';
 import Client from './Client';
 import { ServerMessages, ClientMessages } from './Messages';
+import { EventEmitter } from 'events';
+import { registerEvents, on } from './EventDecorators';
 
-type Player = { client: Client; character: string };
+
+export type Asset = string;
+export type Session = { client: Client; room: Room, character: Asset, playerId: string };
 
 /**
  * Represents a contained space in which game events occur.
@@ -14,11 +18,11 @@ type Player = { client: Client; character: string };
  * a room is a single broadcast group which clients may send and receive messages
  * in.
  */
-export default class Room {
-  /**
-   * A unique list of players currently in this room.
-   */
-  private players: { [playerId: string]: Player } = {};
+@registerEvents
+export default class Room extends EventEmitter {
+  private playerMap: { [playerId: string]: Session } = {};
+  private players = new Set<Session>();
+
   private _server: Server;
   name: string;
   desc: string;
@@ -26,6 +30,7 @@ export default class Room {
   customAllowed: boolean;
 
   constructor(server: Server, { name, desc, protection, customAllowed }) {
+    super();
     this._server = server;
     this.name = name;
     this.desc = desc;
@@ -34,15 +39,13 @@ export default class Room {
   }
 
   get playerCount() {
-    return Object.keys(this.players).length;
+    return Object.keys(this.playerMap).length;
   }
 
-  /**
-   * Gets a list of characters available for use in the room.
-   */
+  /** Gets a list of characters available for use in the room. */
   get characters() {
     const charsUsed = new Set(
-      Object.values(this.players).map(player => player.character)
+      Object.values(this.playerMap).map(player => player.character)
     );
     return Config.get('assets.characters').map(char => {
       return {
@@ -52,15 +55,11 @@ export default class Room {
     });
   }
 
-  /**
-   * Joins a client to the current room.
-   * @param {Client} client Client object
-   * @param {string} character Character asset ID
-   */
-  join(client: Client, character?: string) {
+  /** Joins a client to the current room. */
+  join(client: Client, character?: Asset): Session {
     if (
-      Object.values(this.players).filter(
-        player => player === { client, character }
+      Object.values(this.playerMap).filter(
+        player => [player.client, player.character] === [client, character]
       ).length > 0
     ) {
       // TODO: new config for disallowing two clients with same character
@@ -74,47 +73,39 @@ export default class Room {
 
     // This is not everything that gets put into the player state - this
     // is just the initial state.
-    this.players[playerId] = { client, character };
+    const player = { client, room: this, character, playerId };
+    this.playerMap[playerId] = player;
+    this.players.add(player);
 
-    return playerId;
+    return player;
   }
 
-  /**
-   * Causes a player to leave the current room.
-   * @param {string} playerId ID of the player
-   */
-  leave(playerId: string) {
-    delete this.players[playerId];
-    // TODO: notify all players that a player left
-  }
-
-  /**
-   * Broadcasts a message to all players of the room.
-   * @param {object} data JSON/object data to be broadcasted
-   */
+  /** Broadcasts a message to all players of the room. */
   broadcast(data: ServerMessages.Msg) {
-    Object.values(this.players).forEach(player => {
+    this.players.forEach(player => {
       player.client.send(data);
     });
   }
 
-  /**
-   * Called when an in-character event is received.
-   * @param {object} data packet data of the event received
-   * @param {Client} client client that the event was received from (optional)
-   */
-  receiveEvent(data, client?: Client) {
+  /** Causes a player to leave the current room. */
+  @on('leave')
+  private onLeave(player: Session) {
+    this.players.delete(player);
+    delete this.playerMap[player.playerId];
+    // TODO: notify all players that a player left
+  }
+
+  /** Called when an in-character event is received. */
+  @on('ic')
+  private onEvent(data, origin?: Client) {
     // TODO: sanitize event, flood control, etc.
     this.broadcast(data);
   }
 
-  /**
-   * Called when an out-of-character chat event is received.
-   * @param {object} data packet data of the message received
-   * @param {Client} client client that the message was received from (optional)
-   */
-  receiveOOC(data: ClientMessages.OOC, client?: Client) {
-    // TODO: like receiveEvent
+  /** Called when an out-of-character chat event is received. */
+  @on('ooc')
+  private onOOC(data: ClientMessages.OOC, origin?: Client) {
+    // TODO: like onEvent
     this.broadcast(data);
   }
 }
